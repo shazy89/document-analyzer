@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "document-analyzer"
+version = "0.1.0"
+description = "Terminal-first FastAPI scaffold for Together AI projects"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "pydantic>=2.10,<3.0",
+  "pydantic-settings>=2.7,<3.0",
+  "together>=1.5,<2.0",
+  "uvicorn[standard]>=0.34,<1.0",
+]
+
+[project.scripts]
+document-analyzer = "document_analyzer.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

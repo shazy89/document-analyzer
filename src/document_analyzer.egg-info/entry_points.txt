@@ -1,0 +1,2 @@
+[console_scripts]
+document-analyzer = document_analyzer.cli:main
