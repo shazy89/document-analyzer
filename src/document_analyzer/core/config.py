@@ -4,6 +4,8 @@ from functools import lru_cache
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+from openai import OpenAI, DefaultAioHttpClient
 
 
 class Settings(BaseSettings):
@@ -22,7 +24,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("TOGETHER_API_KEY", "DOC_ANALYZER_TOGETHER_API_KEY"),
     )
     together_model: str = Field(
-        default="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        default="mistralai/Mistral-Small-24B-Instruct-2501",
         validation_alias=AliasChoices("TOGETHER_MODEL", "DOC_ANALYZER_TOGETHER_MODEL"),
     )
 

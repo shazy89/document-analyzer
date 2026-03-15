@@ -55,6 +55,7 @@ class TogetherChatService:
 
         selected_model = model or self._default_model
         messages = self._build_messages(prompt=prompt, system_prompt=system_prompt)
+       
         response = cast(
             _TogetherResponse,
             self._client.chat.completions.create(
