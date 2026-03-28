@@ -27,6 +27,15 @@ class ChatResponse(BaseModel):
     answer: str
 
 
+class ServiceHealth(BaseModel):
+    status: str
+    detail: str | None = None
+
+
+
+
 class HealthResponse(BaseModel):
     status: str
     model: str
+    ai_service: ServiceHealth
+    vector_db: ServiceHealth

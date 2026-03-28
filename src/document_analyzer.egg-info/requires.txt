@@ -5,3 +5,4 @@ together<2.0,>=1.5
 uvicorn[standard]<1.0,>=0.34
 openai<3.0,>=2.20.0
 requests<3.0,>=2.31
+chromadb<1.0,>=0.5

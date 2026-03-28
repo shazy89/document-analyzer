@@ -11,6 +11,7 @@ Requires-Dist: together<2.0,>=1.5
 Requires-Dist: uvicorn[standard]<1.0,>=0.34
 Requires-Dist: openai<3.0,>=2.20.0
 Requires-Dist: requests<3.0,>=2.31
+Requires-Dist: chromadb<1.0,>=0.5
 
 # Document Analyzer
 

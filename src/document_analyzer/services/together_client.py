@@ -66,6 +66,18 @@ class TogetherChatService:
         answer = self._extract_answer(response)
         return ChatResponse(model=selected_model, answer=answer)
 
+    def health(self) -> tuple[bool, str]:
+        if not self._api_key:
+            return False, "TOGETHER_API_KEY is not set."
+
+        try:
+            if self._client is None:
+                self._client = self._build_client()
+        except Exception as exc:
+            return False, f"Together client initialization failed: {exc}"
+
+        return True, "Together client is configured."
+
     def _build_client(self) -> Together:
         os.environ.setdefault("TOGETHER_NO_BANNER", "1")
 
