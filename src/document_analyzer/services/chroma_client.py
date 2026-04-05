@@ -83,10 +83,11 @@ class ChromaService:
         ids: list[str],
         documents: list[str],
         metadatas: list[dict[str, Any]] | None = None,
+        embeddings: list[list[float]] | None = None,
     ) -> None:
         """Add (or upsert) documents into the collection."""
         collection = self.get_or_create_collection()
-        collection.add(ids=ids, documents=documents, metadatas=metadatas)
+        collection.add(ids=ids, documents=documents, metadatas=metadatas, embeddings=embeddings)
 
     def query(
         self,

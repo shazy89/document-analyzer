@@ -35,6 +35,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--chunk-overlap", dest="chunk_overlap", type=int, default=50,
         help="Overlap in characters between chunks (default: 50)",
     )
+    chunk_parser.add_argument(
+        "--embed", action="store_true", default=False,
+        help="Compute embeddings for each chunk",
+    )
 
     return parser
 
@@ -53,6 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             file_name=args.file_name,
             chunk_size=args.chunk_size,
             chunk_overlap=args.chunk_overlap,
+            embed=args.embed,
         )
     return run_chat_loop(system_prompt=getattr(args, "system_prompt", None), model=getattr(args, "model", None))
 
@@ -82,7 +87,7 @@ def run_single_prompt(*, prompt: str, system_prompt: str | None, model: str | No
     return 0
 
 
-def run_chunk(*, file_name: str, chunk_size: int, chunk_overlap: int) -> int:
+def run_chunk(*, file_name: str, chunk_size: int, chunk_overlap: int, embed: bool) -> int:
     from document_analyzer.services.chunking_service import (
         ChunkingService,
         EmptyDocumentError,
@@ -99,6 +104,12 @@ def run_chunk(*, file_name: str, chunk_size: int, chunk_overlap: int) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
+    if embed:
+        from document_analyzer.services.embedding_service import EmbeddingService
+
+        embedding_service = EmbeddingService()
+        embedding_service.embed_chunks(result.chunks)
+
     print(f"File:            {result.file_name}")
     print(f"Strategy:        {result.strategy}")
     print(f"Original length: {result.original_length} characters")
@@ -107,6 +118,10 @@ def run_chunk(*, file_name: str, chunk_size: int, chunk_overlap: int) -> int:
     if result.chunks:
         preview = result.chunks[0].content[:200]
         print(f"\nFirst chunk preview:\n{preview}...")
+        if embed and result.chunks[0].embedding:
+            dims = len(result.chunks[0].embedding)
+            print(f"Embedding dims:  {dims}")
+            print(f"First 5 values:  {result.chunks[0].embedding[:5]}")
 
     return 0
 

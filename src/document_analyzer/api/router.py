@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from document_analyzer.core.config import Settings, get_settings
 from document_analyzer.models.chat import ChatRequest, ChatResponse, HealthResponse, ServiceHealth
-from document_analyzer.models.chunking import ChunkRequest, ChunkResponse
+from document_analyzer.models.chunking import ChunkRequest, ChunkResponse, UploadFileRequest
 from document_analyzer.services.analyze_document import AnalyzeDocumentService
 from document_analyzer.services.chroma_client import ChromaService
 from document_analyzer.services.chunking_service import (
@@ -13,6 +13,7 @@ from document_analyzer.services.chunking_service import (
     FileNotFoundChunkingError,
     UnsupportedFileTypeError,
 )
+from document_analyzer.services.embedding_service import EmbeddingService
 from document_analyzer.services.prompt_builder import PromptBuilder
 from document_analyzer.services.together_client import MissingTogetherAPIKeyError, TogetherChatService
 
@@ -137,16 +138,15 @@ def get_documents(
     chroma_service: ChromaService = Depends(get_chroma_service),
 ):
     try:
-        collection = chroma_service.get_or_create_collection()
-        raw = collection.get(limit=10, offset=0)
-        print("DEBUG: Raw ChromaDB response:", raw)
+        collection = chroma_service.query(query_texts=["what year was galatasaray established?"], n_results=5)
+     
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
 
-    return {"documents": raw}
+    return {"documents": collection}
 
 
 @router.post("/api/v1/add_documents")
@@ -176,7 +176,7 @@ def chunk_document(
     service: ChunkingService = Depends(get_chunking_service),
 ) -> ChunkResponse:
     try:
-        return service.chunk_file(
+        response = service.chunk_file(
             request.file_name,
             chunk_size=request.chunk_size,
             chunk_overlap=request.chunk_overlap,
@@ -196,22 +196,51 @@ def chunk_document(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
+
+    if request.embed:
+        embedding_service = EmbeddingService()
+        embedding_service.embed_chunks(response.chunks)
+
+    return response
         
         
-@router.get("/api/v1/upload_file", response_model=ChunkResponse)
+@router.post("/api/v1/upload_file")
 def upload_and_chunk_file(
-    file_name: str,
-    chunk_size: int = 512,
-    chunk_overlap: int = 50,
+    request: UploadFileRequest,
     service: ChunkingService = Depends(get_chunking_service),
-) -> ChunkResponse:
-    """Endpoint to upload a file and get its chunks in one step."""
+    chroma_service: ChromaService = Depends(get_chroma_service),
+) -> dict:
+    """Upload a file, chunk it, embed it, and store in ChromaDB."""
     try:
-        return service.chunk_file(
-            file_name=file_name,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
+        response = service.chunk_file(
+            file_name=request.file_name,
+            chunk_size=request.chunk_size,
+            chunk_overlap=request.chunk_overlap,
         )
+
+        embedding_service = EmbeddingService()
+        embedding_service.embed_chunks(response.chunks)
+
+        ids = [f"{request.file_name}_chunk_{chunk.chunk_index}" for chunk in response.chunks]
+        documents = [chunk.content for chunk in response.chunks]
+        metadatas = [chunk.metadata for chunk in response.chunks]
+        embeddings = [chunk.embedding for chunk in response.chunks if chunk.embedding is not None]
+
+        if len(embeddings) != len(ids):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Embedding generation failed for some chunks.",
+            )
+
+        chroma_service.add_documents(
+            ids=ids, documents=documents, metadatas=metadatas, embeddings=embeddings,
+        )
+
+        return {
+            "status": "Successfully uploaded, chunked, embedded, and added to ChromaDB.",
+            "chunks_stored": len(ids),
+        }
+
     except FileNotFoundChunkingError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -226,4 +255,4 @@ def upload_and_chunk_file(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
-        ) from exc        
+        ) from exc

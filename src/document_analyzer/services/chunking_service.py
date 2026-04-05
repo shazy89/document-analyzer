@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from document_analyzer.core.config import Settings
 from document_analyzer.models.chunking import ChunkResponse, DocumentChunk
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 if TYPE_CHECKING:
     from langchain_text_splitters import RecursiveCharacterTextSplitter
