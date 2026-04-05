@@ -46,7 +46,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("CHROMA_COLLECTION", "DOC_ANALYZER_CHROMA_COLLECTION"),
     )
     documents_path: str = Field(
-        default="/Users/erdoanshaziman/ai-practice-docs",
+       default="./documents",
         validation_alias=AliasChoices("DOCUMENTS_PATH", "DOC_ANALYZER_DOCUMENTS_PATH"),
     )
 

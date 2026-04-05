@@ -75,8 +75,9 @@ class ChromaService:
     def list_collections(self) -> list[str]:
         """Return a list of collection names in the ChromaDB instance."""
         client = self._get_client()
-        return client.list_collections()
-
+        collections = client.list_collections()
+        return [c.name for c in collections]
+    
     def add_documents(
         self,
         ids: list[str],

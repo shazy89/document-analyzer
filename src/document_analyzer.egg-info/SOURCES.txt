@@ -16,8 +16,10 @@ src/document_analyzer/core/__init__.py
 src/document_analyzer/core/config.py
 src/document_analyzer/models/__init__.py
 src/document_analyzer/models/chat.py
+src/document_analyzer/models/chunking.py
 src/document_analyzer/services/__init__.py
 src/document_analyzer/services/analyze_document.py
 src/document_analyzer/services/chroma_client.py
+src/document_analyzer/services/chunking_service.py
 src/document_analyzer/services/prompt_builder.py
 src/document_analyzer/services/together_client.py
