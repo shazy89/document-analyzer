@@ -39,3 +39,23 @@ class HealthResponse(BaseModel):
     model: str
     ai_service: ServiceHealth
     vector_db: ServiceHealth
+    bm25_db: ServiceHealth
+
+
+class HybridSearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    n_results: int = Field(default=5, gt=0)
+    vector_weight: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class SearchResult(BaseModel):
+    id: str
+    document: str
+    metadata: dict
+    score: float
+    sources: list[str]
+
+
+class HybridSearchResponse(BaseModel):
+    results: list[SearchResult]
+    strategy: str

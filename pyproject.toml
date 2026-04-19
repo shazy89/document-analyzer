@@ -19,6 +19,7 @@ dependencies = [
   "chromadb>=1.0.0,<2.0",
   "langchain-text-splitters>=0.1.0,<1.0",
   "unstructured[pdf]>=0.16,<1.0",
+  "psycopg[binary]>=3.2,<4.0",
 ]
 
 [project.scripts]

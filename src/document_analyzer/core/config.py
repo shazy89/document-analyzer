@@ -50,6 +50,28 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DOCUMENTS_PATH", "DOC_ANALYZER_DOCUMENTS_PATH"),
     )
 
+    # ── PostgreSQL (BM25 full-text search) ────────────────────
+    postgres_host: str = Field(
+        default="localhost",
+        validation_alias=AliasChoices("POSTGRES_HOST", "DOC_ANALYZER_POSTGRES_HOST"),
+    )
+    postgres_port: int = Field(
+        default=5434,
+        validation_alias=AliasChoices("POSTGRES_PORT", "DOC_ANALYZER_POSTGRES_PORT"),
+    )
+    postgres_user: str = Field(
+        default="ed",
+        validation_alias=AliasChoices("POSTGRES_USER", "DOC_ANALYZER_POSTGRES_USER"),
+    )
+    postgres_password: SecretStr = Field(
+        default="123123",
+        validation_alias=AliasChoices("POSTGRES_PASSWORD", "DOC_ANALYZER_POSTGRES_PASSWORD"),
+    )
+    postgres_db: str = Field(
+        default="document_analyzer",
+        validation_alias=AliasChoices("POSTGRES_DB", "DOC_ANALYZER_POSTGRES_DB"),
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

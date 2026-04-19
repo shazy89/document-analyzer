@@ -13,5 +13,19 @@ services:
       - ANONYMIZED_TELEMETRY=FALSE
     restart: unless-stopped
 
+  postgres:
+    image: postgres:17
+    container_name: document-analyzer-postgres
+    environment:
+      POSTGRES_USER: ed
+      POSTGRES_PASSWORD: 123123
+      POSTGRES_DB: document_analyzer
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   chroma_data:
+  postgres_data:

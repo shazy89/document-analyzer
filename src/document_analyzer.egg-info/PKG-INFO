@@ -14,6 +14,7 @@ Requires-Dist: requests<3.0,>=2.31
 Requires-Dist: chromadb<2.0,>=1.0.0
 Requires-Dist: langchain-text-splitters<1.0,>=0.1.0
 Requires-Dist: unstructured[pdf]<1.0,>=0.16
+Requires-Dist: psycopg[binary]<4.0,>=3.2
 
 # Document Analyzer
 

@@ -3,7 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from document_analyzer.core.config import Settings, get_settings
-from document_analyzer.models.chat import ChatRequest, ChatResponse, HealthResponse, ServiceHealth
+from document_analyzer.models.chat import (
+    ChatRequest,
+    ChatResponse,
+    HealthResponse,
+    HybridSearchRequest,
+    ServiceHealth,
+)
+from document_analyzer.services.postgres_client import PostgresService
 from document_analyzer.models.chunking import ChunkRequest, ChunkResponse, UploadFileRequest
 from document_analyzer.services.analyze_document import AnalyzeDocumentService
 from document_analyzer.services.chroma_client import ChromaService
@@ -42,6 +49,12 @@ def get_analyze_service(
     return AnalyzeDocumentService(prompt_builder=PromptBuilder(service))
 
 
+def get_postgres_service(settings: Settings = Depends(get_settings)) -> PostgresService:
+    pg = PostgresService.from_settings(settings)
+    pg.init_schema()
+    return pg
+
+
 # ── Routes ───────────────────────────────────────────────────
 
 
@@ -50,10 +63,12 @@ def health_check(
     settings: Settings = Depends(get_settings),
     ai_service: TogetherChatService = Depends(get_chat_service),
     vector_db: ChromaService = Depends(get_chroma_service),
+    bm25_db: PostgresService = Depends(get_postgres_service),
 ) -> HealthResponse:
     ai_ok, ai_detail = ai_service.health()
     db_ok = vector_db.heartbeat()
-    overall_status = "ok" if ai_ok and db_ok else "degraded"
+    pg_ok = bm25_db.heartbeat()
+    overall_status = "ok" if (ai_ok and db_ok and pg_ok) else "degraded"
 
     return HealthResponse(
         status=overall_status,
@@ -70,6 +85,14 @@ def health_check(
                 else f"Could not reach ChromaDB at {settings.chroma_host}:{settings.chroma_port}."
             ),
         ),
+        bm25_db=ServiceHealth(
+            status="ok" if pg_ok else "error",
+            detail=(
+                f"Connected to PostgreSQL at {settings.postgres_host}:{settings.postgres_port}."
+                if pg_ok
+                else f"Could not reach PostgreSQL at {settings.postgres_host}:{settings.postgres_port}."
+            ),
+        ),
     )
 
 
@@ -78,8 +101,11 @@ def api_health_check(
     settings: Settings = Depends(get_settings),
     ai_service: TogetherChatService = Depends(get_chat_service),
     vector_db: ChromaService = Depends(get_chroma_service),
+    bm25_db: PostgresService = Depends(get_postgres_service),
 ) -> HealthResponse:
-    return health_check(settings=settings, ai_service=ai_service, vector_db=vector_db)
+    return health_check(
+        settings=settings, ai_service=ai_service, vector_db=vector_db, bm25_db=bm25_db,
+    )
 
 @router.post("/api/v1/analyze")
 def analyze_document(
@@ -209,8 +235,9 @@ def upload_and_chunk_file(
     request: UploadFileRequest,
     service: ChunkingService = Depends(get_chunking_service),
     chroma_service: ChromaService = Depends(get_chroma_service),
+    postgres_service: PostgresService = Depends(get_postgres_service),
 ) -> dict:
-    """Upload a file, chunk it, embed it, and store in ChromaDB."""
+    """Upload a file, chunk it, embed it, and store in ChromaDB + PostgreSQL."""
     try:
         response = service.chunk_file(
             file_name=request.file_name,
@@ -236,8 +263,12 @@ def upload_and_chunk_file(
             ids=ids, documents=documents, metadatas=metadatas, embeddings=embeddings,
         )
 
+        postgres_service.add_documents(
+            ids=ids, documents=documents, metadatas=metadatas,
+        )
+
         return {
-            "status": "Successfully uploaded, chunked, embedded, and added to ChromaDB.",
+            "status": "Successfully uploaded, chunked, embedded, and stored in ChromaDB + PostgreSQL.",
             "chunks_stored": len(ids),
         }
 
@@ -256,3 +287,75 @@ def upload_and_chunk_file(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
+
+
+@router.post("/api/v1/hybrid_search")
+def hybrid_search(
+    request: HybridSearchRequest,
+    chroma_service: ChromaService = Depends(get_chroma_service),
+    postgres_service: PostgresService = Depends(get_postgres_service),
+) -> dict:
+    """Run hybrid search: vector (ChromaDB) + BM25 (PostgreSQL) with RRF fusion."""
+    fetch_count = request.n_results * 2
+    k = 60  # RRF constant
+
+    # ── Vector search (ChromaDB) ─────────────────────────────────────────
+    try:
+        vector_results = chroma_service.query(
+            query_texts=[request.query], n_results=fetch_count,
+        )
+    except Exception:
+        vector_results = []
+
+    # ── BM25 search (PostgreSQL) ─────────────────────────────────────────
+    try:
+        bm25_results = postgres_service.query(
+            query_texts=[request.query], n_results=fetch_count,
+        )
+    except Exception:
+        bm25_results = []
+
+    # ── Reciprocal Rank Fusion ────────────────────────────────────────────
+    vector_weight = request.vector_weight
+    bm25_weight = 1.0 - vector_weight
+
+    doc_scores: dict[str, float] = {}
+    doc_data: dict[str, dict] = {}
+    doc_sources: dict[str, set[str]] = {}
+
+    for rank, result in enumerate(vector_results):
+        doc_id = result["id"]
+        rrf_score = vector_weight * (1.0 / (k + rank + 1))
+        doc_scores[doc_id] = doc_scores.get(doc_id, 0.0) + rrf_score
+        doc_data[doc_id] = result
+        doc_sources.setdefault(doc_id, set()).add("vector")
+
+    for rank, result in enumerate(bm25_results):
+        doc_id = result["id"]
+        rrf_score = bm25_weight * (1.0 / (k + rank + 1))
+        doc_scores[doc_id] = doc_scores.get(doc_id, 0.0) + rrf_score
+        if doc_id not in doc_data:
+            doc_data[doc_id] = result
+        doc_sources.setdefault(doc_id, set()).add("bm25")
+
+    # ── Sort by fused score and return top N ─────────────────────────────
+    sorted_ids = sorted(doc_scores, key=lambda did: doc_scores[did], reverse=True)
+    top_ids = sorted_ids[: request.n_results]
+
+    results = []
+    for doc_id in top_ids:
+        data = doc_data[doc_id]
+        results.append(
+            {
+                "id": doc_id,
+                "document": data.get("document", ""),
+                "metadata": data.get("metadata", {}),
+                "score": round(doc_scores[doc_id], 6),
+                "sources": sorted(doc_sources[doc_id]),
+            }
+        )
+
+    return {
+        "results": results,
+        "strategy": f"rrf(vector_weight={vector_weight}, bm25_weight={bm25_weight}, k={k})",
+    }

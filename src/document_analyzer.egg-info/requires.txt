@@ -8,3 +8,4 @@ requests<3.0,>=2.31
 chromadb<2.0,>=1.0.0
 langchain-text-splitters<1.0,>=0.1.0
 unstructured[pdf]<1.0,>=0.16
+psycopg[binary]<4.0,>=3.2
