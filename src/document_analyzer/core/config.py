@@ -72,6 +72,12 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("POSTGRES_DB", "DOC_ANALYZER_POSTGRES_DB"),
     )
 
+    # ── Logging ───────────────────────────────────────────────
+    log_level: str = Field(
+        default="INFO",
+        validation_alias=AliasChoices("LOG_LEVEL", "DOC_ANALYZER_LOG_LEVEL"),
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

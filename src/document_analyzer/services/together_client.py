@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import logging
 import os
 from typing import TYPE_CHECKING, Protocol, cast
 
 from document_analyzer.core.config import Settings
 from document_analyzer.models.chat import ChatMessage, ChatResponse, ChatRole
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from together import Together
@@ -55,7 +58,8 @@ class TogetherChatService:
 
         selected_model = model or self._default_model
         messages = self._build_messages(prompt=prompt, system_prompt=system_prompt)
-       
+        logger.debug("Sending prompt to model=%s (prompt_len=%d)", selected_model, len(prompt))
+
         response = cast(
             _TogetherResponse,
             self._client.chat.completions.create(
@@ -64,6 +68,7 @@ class TogetherChatService:
             ),
         )
         answer = self._extract_answer(response)
+        logger.debug("Received answer from model=%s (answer_len=%d)", selected_model, len(answer))
         return ChatResponse(model=selected_model, answer=answer)
 
     def health(self) -> tuple[bool, str]:
@@ -74,6 +79,7 @@ class TogetherChatService:
             if self._client is None:
                 self._client = self._build_client()
         except Exception as exc:
+            logger.warning("Together client initialization failed: %s", exc)
             return False, f"Together client initialization failed: {exc}"
 
         return True, "Together client is configured."

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 from document_analyzer.core.config import Settings, get_settings
 from document_analyzer.models.chat import (
@@ -267,6 +271,7 @@ def upload_and_chunk_file(
             ids=ids, documents=documents, metadatas=metadatas,
         )
 
+        logger.info("Stored %d chunks for file=%s", len(ids), request.file_name)
         return {
             "status": "Successfully uploaded, chunked, embedded, and stored in ChromaDB + PostgreSQL.",
             "chunks_stored": len(ids),
@@ -304,7 +309,8 @@ def hybrid_search(
         vector_results = chroma_service.query(
             query_texts=[request.query], n_results=fetch_count,
         )
-    except Exception:
+    except Exception as exc:
+        logger.warning("Vector search (ChromaDB) failed: %s", exc, exc_info=True)
         vector_results = []
 
     # ── BM25 search (PostgreSQL) ─────────────────────────────────────────
@@ -312,7 +318,8 @@ def hybrid_search(
         bm25_results = postgres_service.query(
             query_texts=[request.query], n_results=fetch_count,
         )
-    except Exception:
+    except Exception as exc:
+        logger.warning("BM25 search (PostgreSQL) failed: %s", exc, exc_info=True)
         bm25_results = []
 
     # ── Reciprocal Rank Fusion ────────────────────────────────────────────

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
 from document_analyzer.core.config import Settings
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import chromadb
@@ -64,7 +67,8 @@ class ChromaService:
         try:
             client.heartbeat()
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning("ChromaDB heartbeat failed: %s", exc)
             return False
 
     def get_or_create_collection(self) -> _ChromaCollection:
@@ -116,6 +120,7 @@ class ChromaService:
                     "distance": dists[i] if i < len(dists) else None,
                 }
             )
+        logger.debug("ChromaDB query returned %d results", len(results))
         return results
 
     # ── internals ────────────────────────────────────────────

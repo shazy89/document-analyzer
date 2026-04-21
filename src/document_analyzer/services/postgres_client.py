@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 from document_analyzer.core.config import Settings
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import psycopg
@@ -101,7 +104,8 @@ class PostgresService:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning("PostgreSQL heartbeat failed: %s", exc)
             return False
 
     def init_schema(self) -> None:
@@ -161,6 +165,7 @@ class PostgresService:
                         }
                     )
 
+        logger.debug("PostgreSQL BM25 query returned %d results", len(results))
         return results
 
     def list_sources(self) -> list[str]:
