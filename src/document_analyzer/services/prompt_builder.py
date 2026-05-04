@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from document_analyzer.services.together_client import TogetherChatService
+import logging
+from transformers import AutoTokenizer
+from fastapi import logger
 
+from document_analyzer.services.together_client import TogetherChatService
+logger = logging.getLogger(__name__)
 
 class PromptBuilder:
     """Rewrites raw user input into a knowledge-base-friendly query via the LLM."""
@@ -18,7 +22,8 @@ Steps:
    - remove filler / noise words that do not change meaning
 2. Detect intent (one of: question, summary, comparison, lookup)
 3. Reformulate the input into a concise knowledge-base search query
-4. Expand with relevant synonyms and domain keywords
+4. Expand with only obvious synonyms or closely related search terms.
+Do not add facts, entities, dates, names, or claims not present in the user's input.
 
 Return **only** valid JSON in this exact schema – no markdown, no explanation:
 {
@@ -69,6 +74,32 @@ Output:
         except (json.JSONDecodeError, TypeError):
             # LLM did not return valid JSON – fall back to raw response
             return raw
+    
+    def context_builder(self, user_prompt: str, search_response: dict) -> str:
+        """Build a context string for the LLM by combining the reformulated query
+        with the original user prompt."""
+        rewritten = self.rewrite_query_only(user_prompt)
+        context = f"User Prompt: {user_prompt}\nReformulated Query: {rewritten}"
+        
+        if search_response:
+            context += "\nSearch Results:\n"
+            for i, result in enumerate(search_response.get("results", []), 1):
+                context += f"""Source {i}.\n
+                id: {result.get('id', '')}\n
+                metadata: {result.get('metadata', {})}\n
+                score: {result.get('score', 0.0)}\n 
+                context: {result.get('document', '')}\n\n
+                """
+                
+        tokens = self.token_count(context)
+        logger.info(f"Built context with {tokens} tokens:\n{context}")
+        return {"context": context} 
+    
+    def token_count(self, text: str) -> int:
+        """Utility method to count tokens in a string using the same tokenizer as the LLM."""
+
+        tokenizer = AutoTokenizer.from_pretrained(self.service._default_model)
+        return len(tokenizer.encode(text, add_special_tokens=False))   
 
     # ------------------------------------------------------------------
     # Internals

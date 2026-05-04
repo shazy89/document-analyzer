@@ -90,3 +90,7 @@ Type `exit` or `quit` to stop the terminal chat loop.
 | FastAPI    | 8000 |
 | ChromaDB   | 8100 |
 | PostgreSQL | 5434 |
+
+
+# Troubleshooting ChromaDB
+chroma browse documents --host http://127.0.0.1:8100

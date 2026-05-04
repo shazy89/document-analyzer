@@ -15,7 +15,11 @@ from document_analyzer.models.chat import (
     ServiceHealth,
 )
 from document_analyzer.services.postgres_client import PostgresService
-from document_analyzer.models.chunking import ChunkRequest, ChunkResponse, UploadFileRequest
+from document_analyzer.models.chunking import (
+    ChunkRequest,
+    ChunkResponse,
+    UploadFileRequest,
+)
 from document_analyzer.services.analyze_document import AnalyzeDocumentService
 from document_analyzer.services.chroma_client import ChromaService
 from document_analyzer.services.chunking_service import (
@@ -26,7 +30,10 @@ from document_analyzer.services.chunking_service import (
 )
 from document_analyzer.services.embedding_service import EmbeddingService
 from document_analyzer.services.prompt_builder import PromptBuilder
-from document_analyzer.services.together_client import MissingTogetherAPIKeyError, TogetherChatService
+from document_analyzer.services.together_client import (
+    MissingTogetherAPIKeyError,
+    TogetherChatService,
+)
 
 
 router = APIRouter()
@@ -108,8 +115,12 @@ def api_health_check(
     bm25_db: PostgresService = Depends(get_postgres_service),
 ) -> HealthResponse:
     return health_check(
-        settings=settings, ai_service=ai_service, vector_db=vector_db, bm25_db=bm25_db,
+        settings=settings,
+        ai_service=ai_service,
+        vector_db=vector_db,
+        bm25_db=bm25_db,
     )
+
 
 @router.post("/api/v1/analyze")
 def analyze_document(
@@ -168,8 +179,10 @@ def get_documents(
     chroma_service: ChromaService = Depends(get_chroma_service),
 ):
     try:
-        collection = chroma_service.query(query_texts=["what year was galatasaray established?"], n_results=5)
-     
+        collection = chroma_service.query(
+            query_texts=["what year was galatasaray established?"], n_results=5
+        )
+
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -232,8 +245,8 @@ def chunk_document(
         embedding_service.embed_chunks(response.chunks)
 
     return response
-        
-        
+
+
 @router.post("/api/v1/upload_file")
 def upload_and_chunk_file(
     request: UploadFileRequest,
@@ -252,10 +265,15 @@ def upload_and_chunk_file(
         embedding_service = EmbeddingService()
         embedding_service.embed_chunks(response.chunks)
 
-        ids = [f"{request.file_name}_chunk_{chunk.chunk_index}" for chunk in response.chunks]
+        ids = [
+            f"{request.file_name}_chunk_{chunk.chunk_index}"
+            for chunk in response.chunks
+        ]
         documents = [chunk.content for chunk in response.chunks]
         metadatas = [chunk.metadata for chunk in response.chunks]
-        embeddings = [chunk.embedding for chunk in response.chunks if chunk.embedding is not None]
+        embeddings = [
+            chunk.embedding for chunk in response.chunks if chunk.embedding is not None
+        ]
 
         if len(embeddings) != len(ids):
             raise HTTPException(
@@ -264,11 +282,16 @@ def upload_and_chunk_file(
             )
 
         chroma_service.add_documents(
-            ids=ids, documents=documents, metadatas=metadatas, embeddings=embeddings,
+            ids=ids,
+            documents=documents,
+            metadatas=metadatas,
+            embeddings=embeddings,
         )
 
         postgres_service.add_documents(
-            ids=ids, documents=documents, metadatas=metadatas,
+            ids=ids,
+            documents=documents,
+            metadatas=metadatas,
         )
 
         logger.info("Stored %d chunks for file=%s", len(ids), request.file_name)
@@ -307,8 +330,10 @@ def hybrid_search(
     # ── Vector search (ChromaDB) ─────────────────────────────────────────
     try:
         vector_results = chroma_service.query(
-            query_texts=[request.query], n_results=fetch_count,
+            query_texts=[request.query],
+            n_results=fetch_count,
         )
+
     except Exception as exc:
         logger.warning("Vector search (ChromaDB) failed: %s", exc, exc_info=True)
         vector_results = []
@@ -316,7 +341,8 @@ def hybrid_search(
     # ── BM25 search (PostgreSQL) ─────────────────────────────────────────
     try:
         bm25_results = postgres_service.query(
-            query_texts=[request.query], n_results=fetch_count,
+            query_texts=[request.query],
+            n_results=fetch_count,
         )
     except Exception as exc:
         logger.warning("BM25 search (PostgreSQL) failed: %s", exc, exc_info=True)
@@ -366,3 +392,17 @@ def hybrid_search(
         "results": results,
         "strategy": f"rrf(vector_weight={vector_weight}, bm25_weight={bm25_weight}, k={k})",
     }
+
+
+@router.get("/api/v1/prompt_context")
+def get_prompt_context(
+    search: HybridSearchRequest,
+    chroma_service: ChromaService = Depends(get_chroma_service),
+    postgres_service: PostgresService = Depends(get_postgres_service),
+    prompt_builder: PromptBuilder = Depends(),
+    ai_service: TogetherChatService = Depends(get_chat_service),
+):
+    try:
+        pass
+    except:
+        pass
