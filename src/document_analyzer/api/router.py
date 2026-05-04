@@ -65,6 +65,10 @@ def get_postgres_service(settings: Settings = Depends(get_settings)) -> Postgres
     pg.init_schema()
     return pg
 
+def get_prompt_builder(
+    service: TogetherChatService = Depends(get_chat_service),
+) -> PromptBuilder:
+    return PromptBuilder(service)
 
 # ── Routes ───────────────────────────────────────────────────
 
@@ -399,10 +403,23 @@ def get_prompt_context(
     search: HybridSearchRequest,
     chroma_service: ChromaService = Depends(get_chroma_service),
     postgres_service: PostgresService = Depends(get_postgres_service),
-    prompt_builder: PromptBuilder = Depends(),
+    prompt_builder: PromptBuilder = Depends(get_prompt_builder),
     ai_service: TogetherChatService = Depends(get_chat_service),
 ):
     try:
-        pass
-    except:
-        pass
+        prompt = prompt_builder.context_builder(user_prompt=search.query, search_response=hybrid_search(search, chroma_service, postgres_service))
+        print("DEBUG: Built prompt context:", prompt)
+        ai_response = ai_service.ask(prompt=prompt["context"])
+        
+        print("DEBUG: Final AI response:", ai_response.answer)
+        return {
+            "context": prompt["context"],
+            "answer": ai_response.answer,
+            "model": ai_response.model,
+        }
+    except Exception as exc:
+        logger.error("Error in get_prompt_context: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the prompt context.",
+        ) from exc

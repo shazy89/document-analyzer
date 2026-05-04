@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import logging
-from transformers import AutoTokenizer
-from fastapi import logger
 
 from document_analyzer.services.together_client import TogetherChatService
+
 logger = logging.getLogger(__name__)
+
 
 class PromptBuilder:
     """Rewrites raw user input into a knowledge-base-friendly query via the LLM."""
@@ -47,6 +47,8 @@ Output:
 
     def __init__(self, service: TogetherChatService) -> None:
         self.service = service
+        self._tokenizer = None
+        self._tokenizer_name = ""
 
     # ------------------------------------------------------------------
     # Public API
@@ -75,7 +77,7 @@ Output:
             # LLM did not return valid JSON – fall back to raw response
             return raw
     
-    def context_builder(self, user_prompt: str, search_response: dict) -> str:
+    def context_builder(self, user_prompt: str, search_response: dict) -> dict[str, str]:
         """Build a context string for the LLM by combining the reformulated query
         with the original user prompt."""
         rewritten = self.rewrite_query_only(user_prompt)
@@ -96,10 +98,44 @@ Output:
         return {"context": context} 
     
     def token_count(self, text: str) -> int:
-        """Utility method to count tokens in a string using the same tokenizer as the LLM."""
+        """Best-effort token count without requiring network access.
 
-        tokenizer = AutoTokenizer.from_pretrained(self.service._default_model)
-        return len(tokenizer.encode(text, add_special_tokens=False))   
+        Together model IDs are not always valid Hugging Face repo IDs, so this
+        method falls back to an approximate count when no local tokenizer exists.
+        """
+        tokenizer = self._get_local_tokenizer()
+        if tokenizer is None:
+            # Approximation used when tokenizer files are unavailable locally.
+            # Typical English text is roughly 4 chars/token for BPE tokenizers.
+            return max(1, (len(text) + 3) // 4)
+        return len(tokenizer.encode(text, add_special_tokens=False))
+
+    def _get_local_tokenizer(self):  # noqa: ANN202
+        from transformers import AutoTokenizer
+
+        model_name = getattr(self.service, "_default_model", "")
+        if self._tokenizer is not None and model_name == self._tokenizer_name:
+            return self._tokenizer
+
+        for candidate in (model_name, "gpt2"):
+            if not candidate:
+                continue
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(
+                    candidate,
+                    local_files_only=True,
+                )
+                self._tokenizer = tokenizer
+                self._tokenizer_name = model_name
+                return tokenizer
+            except Exception:
+                continue
+
+        logger.warning(
+            "No local tokenizer found for model '%s'; using approximate token count.",
+            model_name,
+        )
+        return None
 
     # ------------------------------------------------------------------
     # Internals
