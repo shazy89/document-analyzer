@@ -46,6 +46,7 @@ class HybridSearchRequest(BaseModel):
     query: str = Field(min_length=1)
     n_results: int = Field(default=5, gt=0)
     vector_weight: float = Field(default=0.5, ge=0.0, le=1.0)
+    instructions: str | None = Field(default=None, description="Optional instructions to guide the search process")
 
 
 class SearchResult(BaseModel):

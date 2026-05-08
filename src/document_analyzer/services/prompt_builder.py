@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-
+import re
 from document_analyzer.services.together_client import TogetherChatService
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,12 @@ Output:
 }
 """
 
+    _Base_Prompt = """You are a query reformulation assistant for a document analysis system.
+    
+    
+    
+    """
+
     def __init__(self, service: TogetherChatService) -> None:
         self.service = service
         self._tokenizer = None
@@ -55,12 +61,11 @@ Output:
     # ------------------------------------------------------------------
 
     def rewrite(self, user_prompt: str) -> str:
-        """Send the raw user prompt through the LLM and return the full
-        JSON reformulation (normalized text, intent, query, keywords)."""
         cleaned = self._pre_clean(user_prompt)
+        wrapped = f"### USER INPUT ###\n{cleaned}\n###"
         response = self.service.ask(
-            prompt=cleaned,
-            system_prompt=self._REWRITE_SYSTEM_PROMPT,
+        prompt=wrapped,
+        system_prompt=self._REWRITE_SYSTEM_PROMPT,
         )
         return response.answer
 
@@ -71,10 +76,13 @@ Output:
         raw = self.rewrite(user_prompt)
         try:
             data = json.loads(self._extract_json_payload(raw))
-            print("DEBUG: Parsed LLM response:", data)
+            
             return data.get("reformulated_query", raw)
         except (json.JSONDecodeError, TypeError):
-            # LLM did not return valid JSON – fall back to raw response
+            logger.warning(
+                 "LLM returned non-JSON response (possible injection or model error). "
+                 "Falling back to raw response. First 200 chars: %.200s", raw
+             )
             return raw
     
     def context_builder(self, user_prompt: str, search_response: dict) -> dict[str, str]:
@@ -82,6 +90,7 @@ Output:
         with the original user prompt."""
         rewritten = self.rewrite_query_only(user_prompt)
         context = f"User Prompt: {user_prompt}\nReformulated Query: {rewritten}"
+
         
         if search_response:
             context += "\nSearch Results:\n"
@@ -95,7 +104,18 @@ Output:
                 
         tokens = self.token_count(context)
         logger.info(f"Built context with {tokens} tokens:\n{context}")
-        return {"context": context} 
+        return {"context": context}
+    
+    def system_prompt_builder(self, instructions: str | None) -> str:
+        base_prompt = """You are an assistant for a document analysis system. \n
+        Answer the user's question based on the provided context from relevant documents.
+        If the context does not contain enough information, say you don't know rather than making up an answer. \n
+        Always use all available context to provide the best possible answer."""
+        if instructions:
+            return f"{base_prompt}\n\nAdditional instructions: {instructions}"
+        return base_prompt 
+    
+
     
     def token_count(self, text: str) -> int:
         """Best-effort token count without requiring network access.
@@ -143,10 +163,16 @@ Output:
 
     @staticmethod
     def _pre_clean(text: str) -> str:
-        import re
-
+        
         text = text.strip()
         text = re.sub(r"\s+", " ", text)
+        injection_pattern = re.compile(
+            r"(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|system)?\s*(instructions?|prompt|context|rules?)",
+            re.IGNORECASE,
+        )
+        if injection_pattern.search(text):
+            logger.warning("Possible prompt injection attempt detected in input: %.100s", text)
+            text = injection_pattern.sub("[removed]", text)
         return text
 
     @staticmethod
