@@ -20,6 +20,10 @@ dependencies = [
   "langchain-text-splitters>=0.1.0,<1.0",
   "unstructured[pdf]>=0.16,<1.0",
   "psycopg[binary]>=3.2,<4.0",
+  "openai>=2.20.0,<3.0",
+  "requests>=2.31,<3.0",
+  "langgraph>=0.1.0,<1.0"
+  
 ]
 
 [project.scripts]
