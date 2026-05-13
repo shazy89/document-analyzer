@@ -22,7 +22,17 @@ dependencies = [
   "psycopg[binary]>=3.2,<4.0",
   "openai>=2.20.0,<3.0",
   "requests>=2.31,<3.0",
-  "langgraph>=0.1.0,<1.0"
+  "langgraph>=0.1.0,<1.0",
+  "langgraph-checkpoint-sqlite>=1.0.0",
+  "langchain-core>=0.2.0",
+  "langchain-openai>=0.1.0",
+  "langchain-community>=0.2.0",
+  # Search tools 
+  "duckduckgo-search>=6.0.0",  
+  "tavily-python>=0.3.0",
+  # Web scraping (agentic_search lesson)
+  "requests>=2.31.0",
+  "beautifulsoup4>=4.12.0"
   
 ]
 

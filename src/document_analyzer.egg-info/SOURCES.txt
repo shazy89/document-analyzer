@@ -10,10 +10,17 @@ src/document_analyzer.egg-info/dependency_links.txt
 src/document_analyzer.egg-info/entry_points.txt
 src/document_analyzer.egg-info/requires.txt
 src/document_analyzer.egg-info/top_level.txt
+src/document_analyzer/analyzer-agent/__init__.py
+src/document_analyzer/analyzer-agent/agent.py
+src/document_analyzer/analyzer-agent/config.py
+src/document_analyzer/analyzer-agent/prompts.py
+src/document_analyzer/analyzer-agent/schemas.py
+src/document_analyzer/analyzer-agent/tools.py
 src/document_analyzer/api/__init__.py
 src/document_analyzer/api/router.py
 src/document_analyzer/core/__init__.py
 src/document_analyzer/core/config.py
+src/document_analyzer/core/logging.py
 src/document_analyzer/models/__init__.py
 src/document_analyzer/models/chat.py
 src/document_analyzer/models/chunking.py
@@ -22,5 +29,7 @@ src/document_analyzer/services/analyze_document.py
 src/document_analyzer/services/chroma_client.py
 src/document_analyzer/services/chunking_service.py
 src/document_analyzer/services/embedding_service.py
+src/document_analyzer/services/evaluation_service.py
+src/document_analyzer/services/postgres_client.py
 src/document_analyzer/services/prompt_builder.py
 src/document_analyzer/services/together_client.py
