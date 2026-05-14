@@ -15,6 +15,17 @@ Requires-Dist: chromadb<2.0,>=1.0.0
 Requires-Dist: langchain-text-splitters<1.0,>=0.1.0
 Requires-Dist: unstructured[pdf]<1.0,>=0.16
 Requires-Dist: psycopg[binary]<4.0,>=3.2
+Requires-Dist: openai<3.0,>=2.20.0
+Requires-Dist: requests<3.0,>=2.31
+Requires-Dist: langgraph<1.0,>=0.1.0
+Requires-Dist: langgraph-checkpoint-sqlite>=1.0.0
+Requires-Dist: langchain-core>=0.2.0
+Requires-Dist: langchain-openai>=0.1.0
+Requires-Dist: langchain-community>=0.2.0
+Requires-Dist: duckduckgo-search>=6.0.0
+Requires-Dist: tavily-python>=0.3.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: beautifulsoup4>=4.12.0
 
 # Document Analyzer
 
@@ -80,13 +91,6 @@ curl -X POST http://127.0.0.1:8000/api/v1/chat \
   -d '{"prompt":"Give me a one-line summary of FastAPI."}'
 ```
 
-**Windows (PowerShell)**
-```powershell
-curl -X POST http://127.0.0.1:8000/api/v1/chat `
-  -H 'Content-Type: application/json' `
-  -d '{"prompt":"Give me a one-line summary of FastAPI."}'
-```
-
 ## Upload & Search
 
 Upload a document (chunks stored in both ChromaDB and PostgreSQL):
@@ -97,25 +101,11 @@ curl -X POST http://127.0.0.1:8000/api/v1/upload_file \
   -d '{"file_name": "my_document.txt"}'
 ```
 
-**Windows (PowerShell)**
-```powershell
-curl -X POST http://127.0.0.1:8000/api/v1/upload_file `
-  -H 'Content-Type: application/json' `
-  -d '{"file_name": "my_document.txt"}'
-```
-
 Hybrid search (vector + BM25 with Reciprocal Rank Fusion):
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/hybrid_search \
   -H 'Content-Type: application/json' \
-  -d '{"query": "revenue growth", "n_results": 5, "vector_weight": 0.5}'
-```
-
-**Windows (PowerShell)**
-```powershell
-curl -X POST http://127.0.0.1:8000/api/v1/hybrid_search `
-  -H 'Content-Type: application/json' `
   -d '{"query": "revenue growth", "n_results": 5, "vector_weight": 0.5}'
 ```
 

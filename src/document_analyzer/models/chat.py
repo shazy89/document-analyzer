@@ -27,6 +27,20 @@ class ChatResponse(BaseModel):
     answer: str
 
 
+class AgentRunRequest(BaseModel):
+    prompt: str = Field(min_length=1)
+    system_prompt: str | None = None
+    model: str | None = None
+    max_tool_iterations: int = Field(default=2, ge=0, le=5)
+
+
+class AgentRunResponse(BaseModel):
+    model: str
+    answer: str
+    tool_calls: list[dict] = Field(default_factory=list)
+    tool_iterations: int
+
+
 class ServiceHealth(BaseModel):
     status: str
     detail: str | None = None
@@ -46,6 +60,7 @@ class HybridSearchRequest(BaseModel):
     query: str = Field(min_length=1)
     n_results: int = Field(default=5, gt=0)
     vector_weight: float = Field(default=0.5, ge=0.0, le=1.0)
+    instructions: str | None = Field(default=None, description="Optional instructions to guide the search process")
 
 
 class SearchResult(BaseModel):

@@ -29,6 +29,7 @@ from document_analyzer.services.chunking_service import (
     UnsupportedFileTypeError,
 )
 from document_analyzer.services.embedding_service import EmbeddingService
+from document_analyzer.services.evaluation_service import EvaluationService
 from document_analyzer.services.prompt_builder import PromptBuilder
 from document_analyzer.services.together_client import (
     MissingTogetherAPIKeyError,
@@ -69,6 +70,10 @@ def get_prompt_builder(
     service: TogetherChatService = Depends(get_chat_service),
 ) -> PromptBuilder:
     return PromptBuilder(service)
+
+
+def get_evaluation_service() -> EvaluationService:
+    return EvaluationService()
 
 # ── Routes ───────────────────────────────────────────────────
 
@@ -385,21 +390,24 @@ def get_prompt_context(
     postgres_service: PostgresService = Depends(get_postgres_service),
     prompt_builder: PromptBuilder = Depends(get_prompt_builder),
     ai_service: TogetherChatService = Depends(get_chat_service),
+    eval_service: EvaluationService = Depends(get_evaluation_service),
 ):
     try:
-        prompt = prompt_builder.context_builder(user_prompt=search.query, search_response=hybrid_search(search, chroma_service, postgres_service))
-        print("DEBUG: Built prompt context:", prompt)
-        instructions = """You are a helpful assistant that provides concise answers based on the provided context. If the context does not contain relevant information, respond with 'I don't know. \n'
-          do no't add based on my results. answer like real human. Talk as proffesional finance person. \n
-          If the context contains relevant information, provide a concise answer based on that information. \n
-          Always use only the provided context to answer the question. Do not make up information or use any knowledge outside of the provided context. \n
-          If the context does not contain enough information to answer the question, say 'I don't know.' \n
+        search_results = hybrid_search(search, chroma_service, postgres_service)
+        prompt = prompt_builder.context_builder(user_prompt=search.query, search_response=search_results)
+        system_prompt = prompt_builder.system_prompt_builder(instructions=search.instructions)
 
-          It is very important that you don't litteraly copy the context. You should read the context and then answer the question in your own words based on the information in the context. Do not just repeat sentences from the context. \n
-        """
-        ai_response = ai_service.ask(prompt=prompt["context"], system_prompt=instructions)
-        
-        print("DEBUG: Final AI response:", ai_response.answer)
+        ai_response = ai_service.ask(prompt=prompt["context"], system_prompt=system_prompt)
+
+        eval_service.log_trace(
+            question=search.query,
+            rewritten_query=prompt_builder.rewrite_query_only(search.query),
+            contexts=[r["document"] for r in search_results.get("results", [])],
+            answer=ai_response.answer,
+            model=ai_response.model,
+            ground_truth=getattr(search, "ground_truth", None),
+        )
+
         return {
             "context": prompt["context"],
             "answer": ai_response.answer,
