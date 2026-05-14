@@ -10,13 +10,15 @@ from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import WebBaseLoader
 from .prompts import SYSTEM_PROMPT
+from langgraph.checkpoint.memory import MemorySaver
+
 
 logger = logging.getLogger(__name__)
 
 class AgentState(TypedDict):
     messages: Annotated[MessagesState, "List of messages in the conversation history"]
 
-
+checkpoint_saver = MemorySaver()
 
 def web_search(query: str) -> list[dict]:
     """Search the web and return structured search results."""
@@ -44,19 +46,21 @@ def scrape_web_page(url: str) -> str:
 
 
 class DocumentAnalyzerAgent:
-    def __init__(self, config: DocumentAnalyzerConfig):
+    def __init__(self, config: DocumentAnalyzerConfig) -> None:
         self.config = config
         self.tools = {
             "web_search": web_search,
             "scrape_web_page": scrape_web_page,
         }
         self.system_prompt = SYSTEM_PROMPT
+        # build the LLM and TOOLS registry
         self._llm = self._build_llm()
         logger.info(
             "DocumentAnalyzerAgent initialized (model=%s, tools=%d)",
             self.config.model_name,
             len(self.tools),
         )
+        
         
     
     def _build_llm(self) -> ChatOpenAI:
@@ -74,13 +78,19 @@ class DocumentAnalyzerAgent:
     
     def build_graph(self) -> StateGraph[AgentState]:
         logger.debug("Building state graph")
-        graph = StateGraph[AgentState]()
+        graph = StateGraph(AgentState)
+        graph.add_node('llm', self._call_llm)
+        graph.add_node('action', self._execute_tool_calls)
+        graph.add_conditional_edges('llm', self._has_tool_calls, {True: "action", False: END})
+        
+        graph.add_edge('action', 'llm')  # After executing tools, go back to LLM for next response
+        graph.set_entry_point('llm')
         
         
-        graph.add_state(END, {"messages": []})
         # Additional states and transitions would be defined here based on the agent's workflow
         logger.debug("State graph initialized with END state")
-        return graph
+        # hardcoded checkpointing for demonstration - in a real implementation, you would want to checkpoint more strategically
+        return graph.compile(checkpointer=checkpoint_saver, interrupt_before=True)
     
     def _has_tool_calls(self, messages: AgentState) -> bool:
         """Check if any message in the conversation history contains a tool call."""
@@ -136,7 +146,7 @@ class DocumentAnalyzerAgent:
                     content = f"Error executing tool '{tool_name}': {e}"
             results.append(ToolMessage(content=content, tool_name=tool_name))
             
-        return {"messages": results}    
+        return {"messages": results} 
 
     
     @staticmethod
@@ -149,3 +159,15 @@ class DocumentAnalyzerAgent:
             return {"query": str_vals[0]} if str_vals else {"query": str(args)}
         return args
     
+    
+  
+
+
+config = DocumentAnalyzerConfig()
+
+def create_agent(config: DocumentAnalyzerConfig) -> DocumentAnalyzerAgent:
+    """Factory function to create a DocumentAnalyzerAgent instance."""
+    logger.info("Creating DocumentAnalyzerAgent with config: %s", config)
+    agent = DocumentAnalyzerAgent(config)
+    logger.info("DocumentAnalyzerAgent created successfully")
+    return agent
