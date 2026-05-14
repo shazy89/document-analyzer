@@ -65,6 +65,7 @@ class TogetherChatService:
             self._client.chat.completions.create(
                 model=selected_model,
                 messages=[message.model_dump() for message in messages],
+                temperature=0.4
             ),
         )
         answer = self._extract_answer(response)

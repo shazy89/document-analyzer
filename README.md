@@ -10,12 +10,25 @@ Minimal FastAPI + Pydantic scaffold for a terminal-first AI project using Togeth
 
 ## Local setup
 
+**macOS / Linux**
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 cp .env.example .env
 ```
+
+**Windows (PowerShell)**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e .
+copy .env.example .env
+```
+
+> If you get a script execution error on Windows, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
+
+> Use `python -m pip` instead of `pip` directly on Windows to avoid "Access is denied" errors caused by pip.exe running outside the virtual environment.
 
 Update `.env` with your Together API key before sending chat requests.
 
@@ -49,6 +62,13 @@ curl -X POST http://127.0.0.1:8000/api/v1/chat \
   -d '{"prompt":"Give me a one-line summary of FastAPI."}'
 ```
 
+**Windows (PowerShell)**
+```powershell
+curl -X POST http://127.0.0.1:8000/api/v1/chat `
+  -H 'Content-Type: application/json' `
+  -d '{"prompt":"Give me a one-line summary of FastAPI."}'
+```
+
 ## Upload & Search
 
 Upload a document (chunks stored in both ChromaDB and PostgreSQL):
@@ -59,11 +79,25 @@ curl -X POST http://127.0.0.1:8000/api/v1/upload_file \
   -d '{"file_name": "my_document.txt"}'
 ```
 
+**Windows (PowerShell)**
+```powershell
+curl -X POST http://127.0.0.1:8000/api/v1/upload_file `
+  -H 'Content-Type: application/json' `
+  -d '{"file_name": "my_document.txt"}'
+```
+
 Hybrid search (vector + BM25 with Reciprocal Rank Fusion):
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/hybrid_search \
   -H 'Content-Type: application/json' \
+  -d '{"query": "revenue growth", "n_results": 5, "vector_weight": 0.5}'
+```
+
+**Windows (PowerShell)**
+```powershell
+curl -X POST http://127.0.0.1:8000/api/v1/hybrid_search `
+  -H 'Content-Type: application/json' `
   -d '{"query": "revenue growth", "n_results": 5, "vector_weight": 0.5}'
 ```
 

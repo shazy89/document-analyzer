@@ -196,26 +196,6 @@ def get_documents(
     return {"documents": collection}
 
 
-@router.post("/api/v1/add_documents")
-def add_documents(
-    chroma_service: ChromaService = Depends(get_chroma_service),
-):
-    try:
-        collection = chroma_service.get_or_create_collection()
-        collection.add(
-            ids=["doc1", "doc2"],
-            documents=["This is the first document.", "This is the second document."],
-            metadatas=[{"source": "test"}, {"source": "test"}],
-            embeddings=[[0.1, 0.2], [0.3, 0.4]],
-        )
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        ) from exc
-
-    return {"status": "documents added successfully"}
-
 
 @router.post("/api/v1/chunk", response_model=ChunkResponse)
 def chunk_document(
@@ -398,7 +378,7 @@ def hybrid_search(
     }
 
 
-@router.get("/api/v1/prompt_context")
+@router.post("/api/v1/prompt_context")
 def get_prompt_context(
     search: HybridSearchRequest,
     chroma_service: ChromaService = Depends(get_chroma_service),
@@ -409,7 +389,15 @@ def get_prompt_context(
     try:
         prompt = prompt_builder.context_builder(user_prompt=search.query, search_response=hybrid_search(search, chroma_service, postgres_service))
         print("DEBUG: Built prompt context:", prompt)
-        ai_response = ai_service.ask(prompt=prompt["context"])
+        instructions = """You are a helpful assistant that provides concise answers based on the provided context. If the context does not contain relevant information, respond with 'I don't know. \n'
+          do no't add based on my results. answer like real human. Talk as proffesional finance person. \n
+          If the context contains relevant information, provide a concise answer based on that information. \n
+          Always use only the provided context to answer the question. Do not make up information or use any knowledge outside of the provided context. \n
+          If the context does not contain enough information to answer the question, say 'I don't know.' \n
+
+          It is very important that you don't litteraly copy the context. You should read the context and then answer the question in your own words based on the information in the context. Do not just repeat sentences from the context. \n
+        """
+        ai_response = ai_service.ask(prompt=prompt["context"], system_prompt=instructions)
         
         print("DEBUG: Final AI response:", ai_response.answer)
         return {

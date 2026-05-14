@@ -144,7 +144,7 @@ Reformulated query:
 
 ---
 
-##  RETRIEVAL
+## RETRIEVAL
 
 - Accept reformulated query
 - Generate query embedding
