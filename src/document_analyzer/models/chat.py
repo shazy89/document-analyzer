@@ -27,6 +27,20 @@ class ChatResponse(BaseModel):
     answer: str
 
 
+class AgentRunRequest(BaseModel):
+    prompt: str = Field(min_length=1)
+    system_prompt: str | None = None
+    model: str | None = None
+    max_tool_iterations: int = Field(default=2, ge=0, le=5)
+
+
+class AgentRunResponse(BaseModel):
+    model: str
+    answer: str
+    tool_calls: list[dict] = Field(default_factory=list)
+    tool_iterations: int
+
+
 class ServiceHealth(BaseModel):
     status: str
     detail: str | None = None
