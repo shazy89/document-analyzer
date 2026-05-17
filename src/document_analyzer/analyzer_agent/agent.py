@@ -1,16 +1,27 @@
 import logging
+import os
+import sys
+import warnings
+from pathlib import Path
+
+from document_analyzer.analyzer_agent.prompts import SYSTEM_PROMPT
+
+os.environ.setdefault("USER_AGENT", "document-analyzer/0.1.0")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="langgraph")
 
 from langchain_core.tools import tool
 
-from .config import DocumentAnalyzerConfig
 from langchain_community.tools import DuckDuckGoSearchResults
 from langgraph.graph import StateGraph, MessagesState, START, END
 from typing import TypedDict, Annotated
 from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import WebBaseLoader
-from .prompts import SYSTEM_PROMPT
 from langgraph.checkpoint.memory import MemorySaver
+
+from document_analyzer.analyzer_agent.config import DocumentAnalyzerConfig
+
+
 
 
 logger = logging.getLogger(__name__)
@@ -20,8 +31,27 @@ class AgentState(TypedDict):
 
 checkpoint_saver = MemorySaver()
 
+
+@tool(description="Search the web and return structured search results.")
 def web_search(query: str) -> list[dict]:
-    """Search the web and return structured search results."""
+    """
+    Search the web for job posts and return structured search results.
+
+    Build focused search queries using:
+    - job title: Full Stack Developer, Software Engineer, Full Stack Engineer
+    - skills: Python, JavaScript, TypeScript, React, AWS
+    - location: United States, New York, New Jersey, remote, hybrid
+    - salary: 140k, $140,000, above 140k
+    - seniority: senior, mid-senior
+
+    Exclude internships and entry-level roles when possible.
+
+    Good example queries:
+    - "Senior Full Stack Engineer Python React remote United States 140k"
+    - 'site:linkedin.com/jobs "Python" "React" "Full Stack" "remote"'
+    - 'site:indeed.com "Full Stack Developer" "Python" "React" "$140,000"'
+    """    
+
     logger.debug("web_search called query=%s", query)
 
     search_tool = DuckDuckGoSearchResults(
@@ -33,6 +63,8 @@ def web_search(query: str) -> list[dict]:
 
     logger.debug("web_search completed")
     return results
+
+
 
 def scrape_web_page(url: str) -> str:
     """Load readable text content from a web page."""
