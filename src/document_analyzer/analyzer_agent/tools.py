@@ -1,7 +1,9 @@
 from ddgs import results
+from ddgs.exceptions import DDGSException
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_core.tools import BaseTool
 import logging
+import time
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.tools import tool
 from document_analyzer.analyzer_agent.config import DocumentAnalyzerConfig
@@ -22,10 +24,9 @@ class AnalyzerAgentTools:
         self.config = config
         self.service = service
 
-    @staticmethod
     def register_tool(self, name: str, func: callable):
         """Register a tool function under a given name."""
-        self.tools[name] = tool(func)
+        self.tools[name] = func if isinstance(func, BaseTool) else tool(func)
         logger.info("Registered tool: %s", name)
 
     def search_content(
@@ -108,13 +109,17 @@ class AnalyzerAgentTools:
 
         search_tool = DuckDuckGoSearchResults(max_results=30, output_format="list")
 
-        results = search_tool.invoke(query)
+        try:
+            results = search_tool.invoke(query)
+        except DDGSException as e:
+            logger.warning("DuckDuckGo search failed for query %r: %s", query, e)
+            return []
 
         logger.debug("web_search completed", extra={"results": results})
         return results
 
     def search_jobs(
-        this,
+        self,
         role: str,
         skills: list[str],
         locations: list[str],
@@ -125,23 +130,35 @@ class AnalyzerAgentTools:
         skill_text = " ".join(f'"{skill}"' for skill in skills)
         location_text = " OR ".join(f'"{location}"' for location in locations)
         salary_text = f'"{min_salary}" OR "${min_salary:,}"' if min_salary else ""
+        remote_text = " OR ".join(f'"{x.strip()}"' for x in remote_preference.split("OR"))
+        seniority_text = " OR ".join(f'"{x.strip()}"' for x in seniority.split("OR"))
 
-        base_query = f'"{role}" {skill_text} ({location_text}) "{remote_preference}" "{seniority}" {salary_text}'
+        base_query = (
+            f'"{role}" '
+            f'{skill_text} '
+            f'({location_text}) '
+            f'({remote_text}) '
+            f'({seniority_text}) '
+            f'{salary_text}'
+        )
 
         queries = [
             base_query,
             f"site:greenhouse.io {base_query}",
             f"site:lever.co {base_query}",
             f"site:ashbyhq.com {base_query}",
+            f"site:jobs.ashbyhq.com {base_query}",
             f"site:workdayjobs.com {base_query}",
-            f"site:linkedin.com/jobs {base_query}",
+         
         ]
 
         seen_links = set()
         all_results = []
 
-        for query in queries:
-            results = this.web_search({"query": query})
+        for i, query in enumerate(queries):
+            if i > 0:
+                time.sleep(2)
+            results = self.web_search(query)
 
             for result in results:
                 link = result.get("link") or result.get("url")
@@ -161,7 +178,7 @@ class AnalyzerAgentTools:
 
         return all_results
 
-    def _web_search(this, query: str) -> list[dict]:
+    def _web_search(self, query: str) -> list[dict]:
         """Search the web and return structured search results."""
         logger.debug("web_search called query=%s", query)
 
@@ -172,7 +189,7 @@ class AnalyzerAgentTools:
         logger.debug("web_search completed", extra={"results": results})
         return results
 
-    def _scrape_web_page(this, url: str) -> str:
+    def _scrape_web_page(self, url: str) -> str:
         """Load readable text content from a web page."""
         logger.debug("scrape_web_page called url=%s", url)
 
@@ -188,7 +205,7 @@ class AnalyzerAgentTools:
             logger.warning("Failed to scrape %s: %s", url, e)
             return f"[skipped: {e}]"
 
-    def _clean_scraped_text(text: str, max_chars: int = 12000) -> str:
+    def _clean_scraped_text(self, text: str, max_chars: int = 12000) -> str:
         noise_phrases = [
             "skip to main content",
             "expand search",
@@ -237,16 +254,16 @@ class AnalyzerAgentTools:
 
         return result[:max_chars]
 
-    def _should_skip_content(text: str) -> bool:
+    def _should_skip_content(self, text: str) -> bool:
         lower = text.lower()
 
         if len(text) < 500:
             return True
 
         """
-        cleaned_content = clean_scraped_text(content)
+        cleaned_content = self._clean_scraped_text(content)
 
-        if should_skip_content(cleaned_content):
+        if self._should_skip_content(cleaned_content):
             continue
 
         Returns:

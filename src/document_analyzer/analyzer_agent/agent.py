@@ -1,205 +1,179 @@
-import logging
-import os
-import sys
-import warnings
-from pathlib import Path
-
-from document_analyzer.analyzer_agent.prompts import SYSTEM_PROMPT
-
-os.environ.setdefault("USER_AGENT", "document-analyzer/0.1.0")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="langgraph")
-
-from langchain_core.tools import tool
-
-from langchain_community.tools import DuckDuckGoSearchResults
-from langgraph.graph import StateGraph, MessagesState, START, END
 from typing import TypedDict, Annotated
-from langchain_core.messages import SystemMessage, ToolMessage
+
 from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import WebBaseLoader
+from langgraph.graph.message import add_messages
+from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
+from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-
+from operator import add
 from document_analyzer.analyzer_agent.config import DocumentAnalyzerConfig
-
-
-
+from document_analyzer.analyzer_agent.prompts import SYSTEM_PROMPT
+from document_analyzer.analyzer_agent.tools import AnalyzerAgentTools
+from document_analyzer.services.together_client import TogetherChatService
+import logging
 
 logger = logging.getLogger(__name__)
 
 class AgentState(TypedDict):
-    messages: Annotated[MessagesState, "List of messages in the conversation history"]
+    messages: Annotated[list[BaseMessage], add_messages]
+    search_queries: Annotated[list[str], add]
+    found_links: Annotated[list[str], add]
+    scraped_urls: Annotated[list[str], add]
+    skipped_urls: Annotated[list[str], add]
+    normalized_jobs: Annotated[list[dict], add]
 
-checkpoint_saver = MemorySaver()
-
-
-@tool(description="Search the web and return structured search results.")
-def web_search(query: str) -> list[dict]:
-    """
-    Search the web for job posts and return structured search results.
-
-    Build focused search queries using:
-    - job title: Full Stack Developer, Software Engineer, Full Stack Engineer
-    - skills: Python, JavaScript, TypeScript, React, AWS
-    - location: United States, New York, New Jersey, remote, hybrid
-    - salary: 140k, $140,000, above 140k
-    - seniority: senior, mid-senior
-
-    Exclude internships and entry-level roles when possible.
-
-    Good example queries:
-    - "Senior Full Stack Engineer Python React remote United States 140k"
-    - 'site:linkedin.com/jobs "Python" "React" "Full Stack" "remote"'
-    - 'site:indeed.com "Full Stack Developer" "Python" "React" "$140,000"'
-    """    
-
-    logger.debug("web_search called query=%s", query)
-
-    search_tool = DuckDuckGoSearchResults(
-        max_results=5,
-        output_format="list",
-    )
-
-    results = search_tool.invoke(query)
-
-    logger.debug("web_search completed")
-    return results
-
-
-
-def scrape_web_page(url: str) -> str:
-    """Load readable text content from a web page."""
-    logger.debug("scrape_web_page called url=%s", url)
-
-    loader = WebBaseLoader(url)
-    docs = loader.load()
-
-    logger.debug("scrape_web_page completed")
-    return "\n\n".join(doc.page_content for doc in docs)
+    errors: Annotated[list[str], add]
+    step: str
 
 
 class DocumentAnalyzerAgent:
-    def __init__(self, config: DocumentAnalyzerConfig) -> None:
+    def __init__(
+        self,
+        config: DocumentAnalyzerConfig,
+        agent_tools: AnalyzerAgentTools,
+        service: TogetherChatService,
+    ) -> None:
         self.config = config
-        self.tools = {
-            "web_search": web_search,
-            "scrape_web_page": scrape_web_page,
-        }
+        self.service = service
         self.system_prompt = SYSTEM_PROMPT
-        # build the LLM and TOOLS registry
+
+        self.agent_tools = agent_tools
+        self.tools = list(agent_tools.tools.values())
+        self.tools_by_name = {tool.name: tool for tool in self.tools}
+
         self._llm = self._build_llm()
+
         logger.info(
             "DocumentAnalyzerAgent initialized (model=%s, tools=%d)",
             self.config.model_name,
             len(self.tools),
         )
-        
-        
-    
-    def _build_llm(self) -> ChatOpenAI:
-        logger.debug(
-            "Building LLM client (model=%s, temperature=%s)",
-            self.config.model_name,
-            self.config.temperature,
-        )
-        model = ChatOpenAI(model=self.config.model_name,
-                           temperature=self.config.temperature,
-                           api_key=self.config.api_key,
-                           api_base=self.config.api_base)
-        
-        return model.bind_tools(self.tools)
-    
-    def build_graph(self) -> StateGraph[AgentState]:
-        logger.debug("Building state graph")
-        graph = StateGraph(AgentState)
-        graph.add_node('llm', self._call_llm)
-        graph.add_node('action', self._execute_tool_calls)
-        graph.add_conditional_edges('llm', self._has_tool_calls, {True: "action", False: END})
-        
-        graph.add_edge('action', 'llm')  # After executing tools, go back to LLM for next response
-        graph.set_entry_point('llm')
-        
-        
-        # Additional states and transitions would be defined here based on the agent's workflow
-        logger.debug("State graph initialized with END state")
-        # hardcoded checkpointing for demonstration - in a real implementation, you would want to checkpoint more strategically
-        return graph.compile(checkpointer=checkpoint_saver, interrupt_before=True)
-    
-    def _has_tool_calls(self, messages: AgentState) -> bool:
-        """Check if any message in the conversation history contains a tool call."""
-        for msg in messages["messages"]:
-            if "tool_calls" in msg and msg["tool_calls"]:
-                logger.debug("Tool call found in message history")
-                return True
-        logger.debug("No tool calls found in message history")
-        return False
-    
-    def _call_llm(self, state: AgentState) -> AgentState:
-        """Call the LLM with the current state and return the updated state."""
-        logger.debug("Calling LLM (messages=%d)", len(state["messages"]))
 
+    def _build_llm(self):
+        model = ChatOpenAI(
+            model=self.config.model_name,
+            temperature=self.config.temperature,
+            api_key=self.config.api_key,
+            base_url=self.config.api_base,
+        )
+
+        return model.bind_tools(self.tools)
+
+    def build_graph(self):
+        graph = StateGraph(AgentState)
+
+        graph.add_node("llm", self._call_llm)
+        graph.add_node("action", self._execute_tool_calls)
+
+        graph.set_entry_point("llm")
+
+        graph.add_conditional_edges(
+            "llm",
+            self._has_tool_calls,
+            {
+                True: "action",
+                False: END,
+            },
+        )
+
+        graph.add_edge("action", "llm")
+
+        return graph.compile(checkpointer=MemorySaver())
+
+    def _has_tool_calls(self, state: AgentState) -> bool:
+        last_message = state["messages"][-1]
+        return bool(getattr(last_message, "tool_calls", None))
+
+    def _call_llm(self, state: AgentState) -> AgentState:
         messages = state["messages"]
+
         if self.system_prompt:
             messages = [SystemMessage(content=self.system_prompt)] + messages
 
-        try:
-            response = self._llm.invoke(messages=messages)
-        except Exception:
-            logger.exception("LLM invocation failed")
-            raise
+        response = self._llm.invoke(messages)
 
-        logger.debug(
-            "LLM call completed (has_tool_calls=%s)",
-            bool(getattr(response, "tool_calls", None)),
-        )
-        # Process the response and update the state accordingly
-        # This is a placeholder for the actual logic to handle the LLM's response
-        return {"messages": state["messages"] + [response]}
-    
+        return {"messages": [response]}
+
     def _execute_tool_calls(self, state: AgentState) -> AgentState:
-        results: list[ToolMessage] = []
-        """Execute any tool calls found in the messages and update the state with results."""
-        logger.debug("Checking for tool calls to execute")
-        
-        for call in state["messages"][-1].tool_calls:
+        last_message = state["messages"][-1]    
+
+        tool_messages = []
+        found_links = []
+        normalized_jobs = []
+        errors = [] 
+
+        for call in last_message.tool_calls:
             tool_name = call["name"]
-            logger.info("Executing tool | name=%s args=%s", tool_name, call["args"])
-            
-            if not tool_name in self.tools:
-                logger.warning("Tool not found: %s", tool_name)
-                content = (
-                    f"Unknown tool: {tool_name}. Available tools: {', '.join(self.tools.keys())}"
+            args = call.get("args", {}) 
+
+            selected_tool = self.tools_by_name.get(tool_name)   
+
+            if not selected_tool:
+                content = f"Unknown tool: {tool_name}"
+                errors.append(content)  
+
+                tool_messages.append(
+                    ToolMessage(
+                        content=content,
+                        name=tool_name,
+                        tool_call_id=call["id"],
+                    )
                 )
-            else:
-                args = self._normalise_args(call["args"])
-                try:
-                    content = str(self._registry.get(tool_name).invoke(args))
-                except Exception as e:
-                    logger.exception("Error executing tool '%s'", tool_name)
-                    content = f"Error executing tool '{tool_name}': {e}"
-            results.append(ToolMessage(content=content, tool_name=tool_name))
-            
-        return {"messages": results} 
+                continue    
 
+            try:
+                result = selected_tool.invoke(args) 
+
+                if isinstance(result, list):
+                    for item in result:
+                        if not isinstance(item, dict):
+                            continue    
+
+                        if item.get("source_link"):
+                            found_links.append(item["source_link"]) 
+
+                        if item.get("normalized"):
+                            normalized_jobs.append(item)    
+
+                tool_messages.append(
+                    ToolMessage(
+                        content=str(result),
+                        name=tool_name,
+                        tool_call_id=call["id"],
+                    )
+                )   
+
+            except Exception as e:
+                content = f"Error executing tool '{tool_name}': {e}"
+                errors.append(content)  
+
+                tool_messages.append(
+                    ToolMessage(
+                        content=content,
+                        name=tool_name,
+                        tool_call_id=call["id"],
+                    )
+                )   
+
+        return {
+            "messages": tool_messages,
+            "found_links": found_links,
+            "normalized_jobs": normalized_jobs,
+            "errors": errors,
+            "step": "tools_executed",
+        }
     
-    @staticmethod
-    def _normalise_args(args) -> dict:
-        """Coerce tool arguments into the expected {'query': str} shape."""
-        if isinstance(args, str):
-            return {"query": args}
-        if isinstance(args, dict) and "query" not in args:
-            str_vals = [v for v in args.values() if isinstance(v, str)]
-            return {"query": str_vals[0]} if str_vals else {"query": str(args)}
-        return args
     
+# Factory function to create an instance of DocumentAnalyzerAgent with the necessary configuration and tools    
+def create_job_hunter_agent(config: DocumentAnalyzerConfig) -> DocumentAnalyzerAgent:
+    service = TogetherChatService(api_key=config.api_key, default_model=config.model_name)
+
+    agent_tools = AnalyzerAgentTools(config=config, service=service)
+    agent_tools.register_tool("search_jobs", agent_tools.search_content)
+
+    return DocumentAnalyzerAgent(
+        config=config,
+        agent_tools=agent_tools,
+        service=service,
+    )    
     
-  
-
-
-config = DocumentAnalyzerConfig()
-
-def create_agent(config: DocumentAnalyzerConfig) -> DocumentAnalyzerAgent:
-    """Factory function to create a DocumentAnalyzerAgent instance."""
-    logger.info("Creating DocumentAnalyzerAgent with config: %s", config)
-    agent = DocumentAnalyzerAgent(config)
-    logger.info("DocumentAnalyzerAgent created successfully")
-    return agent
