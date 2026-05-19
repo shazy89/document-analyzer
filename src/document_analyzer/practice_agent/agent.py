@@ -61,7 +61,7 @@ class PracticeAgent:
     def __init__(self, config: DocumentAnalyzerConfig,):
         self.config = config
         
-        self._llm_model = self._llm_model()
+        self._llm = self._llm_model()
         
     def _llm_model(self):
         return ChatOpenAI(model=self.config.model_name, temperature=0, api_key=self.config.api_key, base_url=self.config.api_base).bind_tools(tools_by_name)    
@@ -75,7 +75,7 @@ class PracticeAgent:
                     )
         
         messages = [system_prompt] + messages
-        content = self._llm_model.invoke(messages)
+        content = self._llm.invoke(messages)
         
         return {"messages": [content], "llm_calls": llm_calls + 1}
         
