@@ -40,6 +40,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compute embeddings for each chunk",
     )
 
+    agent_parser = subparsers.add_parser("agent", help="Run an agent interactively in the terminal")
+    agent_parser.add_argument(
+        "agent_name",
+        choices=["analyzer", "practice"],
+        help="Which agent to run (analyzer or practice)",
+    )
+    agent_parser.add_argument("--prompt", help="Single prompt to send (skip interactive mode)")
+    agent_parser.add_argument("--model", help="Override the configured model")
+
     return parser
 
 
@@ -59,6 +68,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             chunk_overlap=args.chunk_overlap,
             embed=args.embed,
         )
+    if command == "agent":
+        return run_agent(agent_name=args.agent_name, prompt=args.prompt, model=args.model)
     return run_chat_loop(system_prompt=getattr(args, "system_prompt", None), model=getattr(args, "model", None))
 
 
@@ -152,6 +163,88 @@ def run_chat_loop(*, system_prompt: str | None, model: str | None) -> int:
             return 1
 
         print(response.answer)
+
+
+def run_agent(*, agent_name: str, prompt: str | None, model: str | None) -> int:
+    from dotenv import load_dotenv
+    from langchain_core.messages import HumanMessage
+
+    from document_analyzer.analyzer_agent.config import DocumentAnalyzerConfig
+
+    load_dotenv()
+
+    config = DocumentAnalyzerConfig.from_env()
+    if model:
+        config.model_name = model
+
+    if agent_name == "analyzer":
+        from document_analyzer.analyzer_agent.agent import create_job_hunter_agent
+
+        agent = create_job_hunter_agent(config)
+        graph = agent.build_graph()
+    elif agent_name == "practice":
+        from document_analyzer.practice_agent.agent import PracticeAgent
+        from langgraph.graph import StateGraph, END
+        from langgraph.checkpoint.memory import MemorySaver
+        from document_analyzer.practice_agent.agent import tools_by_name, MessagesState
+        from langchain_core.messages import ToolMessage
+
+        pa = PracticeAgent(config)
+
+        def should_continue(state: MessagesState) -> bool:
+            last = state["messages"][-1]
+            return bool(getattr(last, "tool_calls", None))
+
+        def tool_node(state: MessagesState) -> MessagesState:
+            last = state["messages"][-1]
+            results = []
+            for call in last.tool_calls:
+                t = tools_by_name.get(call["name"])
+                if t:
+                    result = t.invoke(call["args"])
+                    results.append(ToolMessage(content=str(result), name=call["name"], tool_call_id=call["id"]))
+            return {"messages": results}
+
+        g = StateGraph(MessagesState)
+        g.add_node("llm", pa.llm_call)
+        g.add_node("tools", tool_node)
+        g.set_entry_point("llm")
+        g.add_conditional_edges("llm", should_continue, {True: "tools", False: END})
+        g.add_edge("tools", "llm")
+        graph = g.compile(checkpointer=MemorySaver())
+    else:
+        print(f"Unknown agent: {agent_name}", file=sys.stderr)
+        return 1
+
+    thread_config = {"configurable": {"thread_id": "cli-session"}}
+
+    if prompt:
+        result = graph.invoke({"messages": [HumanMessage(content=prompt)]}, config=thread_config)
+        final = result["messages"][-1]
+        print(final.content)
+        return 0
+
+    print(f"Agent '{agent_name}' interactive mode. Type 'exit' or 'quit' to stop.")
+    while True:
+        try:
+            user_input = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+
+        if not user_input:
+            continue
+        if user_input.lower() in {"exit", "quit"}:
+            return 0
+
+        try:
+            result = graph.invoke({"messages": [HumanMessage(content=user_input)]}, config=thread_config)
+            final = result["messages"][-1]
+            print(final.content)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+
+    return 0
 
 
 if __name__ == "__main__":

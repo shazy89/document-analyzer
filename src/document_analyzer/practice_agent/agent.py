@@ -8,6 +8,7 @@ from typing_extensions import Annotated
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.tools import tool
 
+from document_analyzer.analyzer_agent.agent import AgentState
 from document_analyzer.analyzer_agent.config import DocumentAnalyzerConfig
 
 
@@ -63,6 +64,7 @@ class PracticeAgent:
         
         self._llm = self._llm_model()
         
+        
     def _llm_model(self):
         return ChatOpenAI(model=self.config.model_name, temperature=0, api_key=self.config.api_key, base_url=self.config.api_base).bind_tools(tools_by_name)    
     
@@ -78,4 +80,10 @@ class PracticeAgent:
         content = self._llm.invoke(messages)
         
         return {"messages": [content], "llm_calls": llm_calls + 1}
+    
+    def tools_node(self, state: AgentState) -> AgentState:
+        last_message = state["messages"][-1]
+        print("Executing tools for message:", last_message)
+        "Performs a call to the tools based on the messages in the state."
+
         
