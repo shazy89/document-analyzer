@@ -1,6 +1,9 @@
-from typing import TypedDict, Optional, List, Dict, Any
+from typing import Annotated, TypedDict, Optional, List, Dict, Any
+from langchain_core.messages import BaseMessage
+from langgraph.graph import add_messages
 from pydantic import BaseModel, Field
 from typing import List
+from operator import add
 
 
 class QuestionDecision(BaseModel):
@@ -10,8 +13,12 @@ class QuestionDecision(BaseModel):
 
 
 class UXAgentState(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]
+    errors: Annotated[list[str], add]
+    
     user_request: str
     user_id: str  # used to look up / create the profile in profiles.json
+    org_id: Optional[str]  # reserved for future use, e.g. company-wide profiles
 
     # Reusable memory/profile
     user_profile: Dict[str, Any]

@@ -1,3 +1,16 @@
 {
-  "profiles": {}
+  "profiles": {
+    "anonymous": {
+      "user_id": "anonymous",
+      "org_id": null,
+      "created_at": "2026-06-05T10:35:06.540081+00:00",
+      "preferences": {
+        "ux_goal": "Reduce signup drop-off",
+        "target_user": "First-time mobile users",
+        "main_job": "Create account quickly"
+      },
+      "history_summary": "",
+      "updated_at": "2026-06-05T10:35:06.542790+00:00"
+    }
+  }
 }
