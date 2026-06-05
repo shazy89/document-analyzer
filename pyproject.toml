@@ -34,7 +34,8 @@ dependencies = [
   # Web scraping (agentic_search lesson)
   "requests>=2.31.0",
   "beautifulsoup4>=4.12.0",
-  "trafilatura>=1.12.0"
+  "trafilatura>=1.12.0",
+  "python-dotenv>=1.0.0"
   
 ]
 
