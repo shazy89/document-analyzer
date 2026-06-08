@@ -1,16 +1,475 @@
 {
-  "profiles": {
-    "anonymous": {
-      "user_id": "anonymous",
-      "org_id": null,
-      "created_at": "2026-06-05T10:35:06.540081+00:00",
-      "preferences": {
-        "ux_goal": "Reduce signup drop-off",
-        "target_user": "First-time mobile users",
-        "main_job": "Create account quickly"
-      },
-      "history_summary": "",
-      "updated_at": "2026-06-05T10:35:06.542790+00:00"
+  "profiles": [
+    {
+      "id": "profile_001",
+      "name": "FinPro",
+      "slug": "finpro",
+      "owner_user_id": "user_001",
+      "org_id": "org_001",
+      "type": "customer_product",
+      "domain": "Banking / Financial Analytics",
+      "description": "Banking analytics and financial consulting platform used to review risk, solvency, and financial performance dashboards.",
+      "target_users": [
+        "Bank executives",
+        "Bank analysts",
+        "FinPro consultants",
+        "Admin users"
+      ],
+      "core_use_cases": [
+        "Build financial dashboards",
+        "Review solvency and risk indicators",
+        "Export insights to PowerPoint",
+        "Manage financial framework content"
+      ],
+      "pages": [
+        {
+          "id": "page_finpro_solvency",
+          "name": "Solvency Intelligence",
+          "slug": "solvency_intelligence",
+          "type": "dashboard",
+          "purpose": "Help users understand current solvency health, risk drivers, and recommended actions.",
+          "primary_users": [
+            "Bank executives",
+            "Bank analysts",
+            "FinPro consultants"
+          ],
+          "main_job": "Review solvency score changes and understand what actions should be taken next.",
+          "core_sections": [
+            "Executive KPI summary",
+            "Solvency score trend",
+            "Risk driver breakdown",
+            "Recommendations",
+            "Scenario and stress test"
+          ],
+          "common_actions": [
+            "Review current score",
+            "Compare score over time",
+            "Inspect risk drivers",
+            "View recommendations",
+            "Export report"
+          ],
+          "known_friction": [
+            "Users may not understand why the score changed",
+            "Executives need summary first, details second",
+            "Financial thresholds must be visually clear"
+          ],
+          "design_notes": [
+            "Start with high-level KPI cards before detailed charts or tables",
+            "Always explain score movement with plain-language drivers",
+            "Use clear thresholds for high, moderate, and low risk"
+          ]
+        },
+        {
+          "id": "page_finpro_loan_analytics",
+          "name": "Loan Analytics Dashboard",
+          "slug": "loan_analytics_dashboard",
+          "type": "dashboard",
+          "purpose": "Help users review loan portfolio performance, risk exposure, and trends.",
+          "primary_users": [
+            "Bank analysts",
+            "Bank executives",
+            "FinPro consultants"
+          ],
+          "main_job": "Identify portfolio risk and performance issues quickly.",
+          "core_sections": [
+            "Loan KPI summary",
+            "Portfolio trend charts",
+            "Risk segmentation",
+            "Loan details table"
+          ],
+          "common_actions": [
+            "Review KPIs",
+            "Filter by segment",
+            "Inspect loan details",
+            "Export dashboard"
+          ],
+          "known_friction": [
+            "Large data tables can overwhelm users",
+            "Users need context before seeing detailed loan rows"
+          ],
+          "design_notes": [
+            "Use KPI cards as the first section",
+            "Place detailed tables below summary and trend sections",
+            "Support filtering by risk level and portfolio segment"
+          ]
+        },
+        {
+          "id": "page_finpro_finpropedia",
+          "name": "FinPropedia",
+          "slug": "finpropedia",
+          "type": "knowledge_base",
+          "purpose": "Help users find, manage, and export official financial framework content.",
+          "primary_users": [
+            "FinPro consultants",
+            "Bank analysts",
+            "Admin users"
+          ],
+          "main_job": "Find official financial definitions and export them into presentation-ready content.",
+          "core_sections": [
+            "Search",
+            "Topic tree",
+            "Topic detail",
+            "Collection builder",
+            "PowerPoint export"
+          ],
+          "common_actions": [
+            "Search topics",
+            "Open topic detail",
+            "Add content to collection",
+            "Reorder selected content",
+            "Export to PowerPoint"
+          ],
+          "known_friction": [
+            "Users may struggle to find the correct framework definition",
+            "Exported content must preserve formatting",
+            "Large topic trees can become hard to navigate"
+          ],
+          "design_notes": [
+            "Prioritize search and scannable topic navigation",
+            "Keep selected export content visible",
+            "Make PowerPoint export status clear"
+          ]
+        }
+      ],
+      "ux_constraints": [
+        "Must support executive-level summaries",
+        "Financial numbers must be clear and trustworthy",
+        "Users need to understand why scores changed",
+        "Export-ready layouts are important"
+      ],
+      "status": "active",
+      "created_at": "2026-06-06T00:00:00Z",
+      "updated_at": "2026-06-06T00:00:00Z"
+    },
+    {
+      "id": "profile_002",
+      "name": "Wealth Wing",
+      "slug": "wealth_wing",
+      "owner_user_id": "user_001",
+      "org_id": "org_001",
+      "type": "personal_product",
+      "domain": "Personal Finance",
+      "description": "Personal finance app for tracking accounts, imports, transactions, categories, and recurring subscriptions.",
+      "target_users": [
+        "Individual users",
+        "Families",
+        "Budget-conscious users"
+      ],
+      "core_use_cases": [
+        "Track spending",
+        "Import bank transactions",
+        "Review account balances",
+        "Detect subscriptions",
+        "Analyze monthly cash flow"
+      ],
+      "pages": [
+        {
+          "id": "page_wealth_dashboard",
+          "name": "Dashboard",
+          "slug": "dashboard",
+          "type": "dashboard",
+          "purpose": "Give users a quick overview of financial health, spending, subscriptions, and recent activity.",
+          "primary_users": [
+            "Individual users",
+            "Families"
+          ],
+          "main_job": "Understand current financial status without digging through transactions first.",
+          "core_sections": [
+            "KPI summary",
+            "Cash flow overview",
+            "Spending trend",
+            "Subscription summary",
+            "Recent transactions"
+          ],
+          "common_actions": [
+            "Review financial summary",
+            "Open transactions",
+            "Review subscriptions",
+            "Start import"
+          ],
+          "known_friction": [
+            "Users may not understand what changed month over month",
+            "Too many charts can make the dashboard feel noisy"
+          ],
+          "design_notes": [
+            "Show KPI cards first",
+            "Place detailed transaction table below summary sections",
+            "Use plain-language insights for changes in spending"
+          ]
+        },
+        {
+          "id": "page_wealth_accounts",
+          "name": "Accounts",
+          "slug": "accounts",
+          "type": "management_page",
+          "purpose": "Let users view and manage financial accounts.",
+          "primary_users": [
+            "Individual users"
+          ],
+          "main_job": "Understand where money is stored and whether account data is accurate.",
+          "core_sections": [
+            "Account summary cards",
+            "Accounts table",
+            "Add account action"
+          ],
+          "common_actions": [
+            "Add account",
+            "Edit account",
+            "View account transactions",
+            "Archive account"
+          ],
+          "known_friction": [
+            "Users may not understand account status",
+            "Inactive accounts can clutter the page"
+          ],
+          "design_notes": [
+            "Show account type, institution, balance, and status clearly",
+            "Separate active and archived accounts"
+          ]
+        },
+        {
+          "id": "page_wealth_imports",
+          "name": "Imports",
+          "slug": "imports",
+          "type": "workflow_page",
+          "purpose": "Let users upload, map, review, and process transaction imports.",
+          "primary_users": [
+            "Individual users"
+          ],
+          "main_job": "Import transactions accurately without creating duplicates.",
+          "core_sections": [
+            "Import history",
+            "Upload step",
+            "Account selection",
+            "Column mapping",
+            "Review step",
+            "Import status"
+          ],
+          "common_actions": [
+            "Upload CSV",
+            "Select account",
+            "Map columns",
+            "Review transactions",
+            "Complete import"
+          ],
+          "known_friction": [
+            "Users may worry about duplicate transactions",
+            "Column mapping can be confusing",
+            "Failed imports need clear recovery steps"
+          ],
+          "design_notes": [
+            "Use a step-by-step flow",
+            "Show validation before final import",
+            "Make duplicate detection visible"
+          ]
+        },
+        {
+          "id": "page_wealth_transactions",
+          "name": "Transactions",
+          "slug": "transactions",
+          "type": "data_table_page",
+          "purpose": "Let users search, filter, review, and categorize transactions.",
+          "primary_users": [
+            "Individual users",
+            "Families"
+          ],
+          "main_job": "Find and understand spending activity quickly.",
+          "core_sections": [
+            "Summary bar",
+            "Filters",
+            "Transactions table",
+            "Pagination"
+          ],
+          "common_actions": [
+            "Search transactions",
+            "Filter by date",
+            "Filter by account",
+            "Update category",
+            "Review transaction details"
+          ],
+          "known_friction": [
+            "Large transaction lists can become hard to scan",
+            "Users may need quick category corrections"
+          ],
+          "design_notes": [
+            "Keep filters visible and easy to reset",
+            "Use readable amount formatting",
+            "Separate income and expenses visually but subtly"
+          ]
+        },
+        {
+          "id": "page_wealth_subscriptions",
+          "name": "Subscriptions",
+          "slug": "subscriptions",
+          "type": "insights_page",
+          "purpose": "Help users detect and review recurring charges.",
+          "primary_users": [
+            "Individual users",
+            "Families"
+          ],
+          "main_job": "Identify recurring payments and understand monthly subscription cost.",
+          "core_sections": [
+            "Subscription KPI summary",
+            "Detected subscriptions list",
+            "Subscription detail",
+            "Related transactions"
+          ],
+          "common_actions": [
+            "Review detected subscriptions",
+            "Confirm subscription",
+            "Dismiss false positive",
+            "View related transactions"
+          ],
+          "known_friction": [
+            "Detection may produce false positives",
+            "Users need to trust why something was marked as recurring"
+          ],
+          "design_notes": [
+            "Explain why a subscription was detected",
+            "Show related transaction history",
+            "Allow users to confirm or dismiss detected subscriptions"
+          ]
+        }
+      ],
+      "ux_constraints": [
+        "Financial data should be easy to scan",
+        "Users need confidence that imports are accurate",
+        "Duplicate transactions should be avoided",
+        "Charts should explain trends without overwhelming the user"
+      ],
+      "status": "active",
+      "created_at": "2026-06-06T00:00:00Z",
+      "updated_at": "2026-06-06T00:00:00Z"
+    },
+    {
+      "id": "profile_003",
+      "name": "MedTrack",
+      "slug": "medtrack",
+      "owner_user_id": "user_002",
+      "org_id": "org_002",
+      "type": "customer_product",
+      "domain": "Healthcare Operations",
+      "description": "Healthcare operations platform for tracking patient intake, appointments, staff workflows, and clinic performance.",
+      "target_users": [
+        "Clinic managers",
+        "Front desk staff",
+        "Healthcare administrators"
+      ],
+      "core_use_cases": [
+        "Manage patient intake",
+        "Track appointment status",
+        "Monitor clinic workload",
+        "Identify bottlenecks in patient flow"
+      ],
+      "pages": [
+        {
+          "id": "page_medtrack_clinic_dashboard",
+          "name": "Clinic Dashboard",
+          "slug": "clinic_dashboard",
+          "type": "dashboard",
+          "purpose": "Help clinic teams understand current operational status and workload.",
+          "primary_users": [
+            "Clinic managers",
+            "Healthcare administrators"
+          ],
+          "main_job": "Identify patient flow bottlenecks and staff workload issues.",
+          "core_sections": [
+            "Operational KPI summary",
+            "Appointment status overview",
+            "Patient flow chart",
+            "Staff workload summary"
+          ],
+          "common_actions": [
+            "Review clinic status",
+            "Inspect appointment delays",
+            "Check staff workload"
+          ],
+          "known_friction": [
+            "Busy users need fast scanning",
+            "Critical patient status should be visible quickly"
+          ],
+          "design_notes": [
+            "Use clear status hierarchy",
+            "Avoid dense dashboards",
+            "Prioritize urgent operational issues"
+          ]
+        }
+      ],
+      "ux_constraints": [
+        "Must reduce cognitive load for busy staff",
+        "Critical patient status should be visible quickly",
+        "Workflows should minimize extra clicks",
+        "Accessibility and readability are important"
+      ],
+      "status": "active",
+      "created_at": "2026-06-06T00:00:00Z",
+      "updated_at": "2026-06-06T00:00:00Z"
+    },
+    {
+      "id": "profile_004",
+      "name": "RetailPulse",
+      "slug": "retailpulse",
+      "owner_user_id": "user_003",
+      "org_id": "org_003",
+      "type": "customer_product",
+      "domain": "Retail Analytics",
+      "description": "Retail analytics dashboard for monitoring sales performance, inventory movement, customer trends, and store operations.",
+      "target_users": [
+        "Store managers",
+        "Retail executives",
+        "Inventory analysts",
+        "Operations teams"
+      ],
+      "core_use_cases": [
+        "Track store sales",
+        "Monitor inventory health",
+        "Compare location performance",
+        "Identify underperforming products"
+      ],
+      "pages": [
+        {
+          "id": "page_retailpulse_sales_dashboard",
+          "name": "Sales Dashboard",
+          "slug": "sales_dashboard",
+          "type": "dashboard",
+          "purpose": "Help retail teams monitor sales performance and identify changes quickly.",
+          "primary_users": [
+            "Store managers",
+            "Retail executives"
+          ],
+          "main_job": "Understand sales performance across time periods and locations.",
+          "core_sections": [
+            "Sales KPI summary",
+            "Sales trend chart",
+            "Store comparison",
+            "Top and bottom products"
+          ],
+          "common_actions": [
+            "Review sales KPIs",
+            "Compare stores",
+            "Inspect product performance",
+            "Filter by time period"
+          ],
+          "known_friction": [
+            "Users need fast comparison between stores",
+            "Too many metrics can distract from daily decisions"
+          ],
+          "design_notes": [
+            "Show KPI cards first",
+            "Use comparison views for stores and periods",
+            "Make underperforming products easy to find"
+          ]
+        }
+      ],
+      "ux_constraints": [
+        "KPIs should support fast daily decisions",
+        "Users need comparison between stores and time periods",
+        "Inventory risks should be visually obvious",
+        "Mobile-friendly summaries may be needed for managers"
+      ],
+      "status": "active",
+      "created_at": "2026-06-06T00:00:00Z",
+      "updated_at": "2026-06-06T00:00:00Z"
     }
-  }
+  ]
 }
