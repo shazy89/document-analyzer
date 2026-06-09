@@ -14,6 +14,7 @@ class GeneralAgentConfig:
     api_key: str = field(default_factory=lambda: os.getenv("TOGETHER_API_KEY", ""))
     api_base: str = field(default_factory=lambda: os.getenv("TOGETHER_API_BASE", "https://api.together.xyz/v1"))
     temperature: float = field(default_factory=lambda: float(os.getenv("TOGETHER_TEMPERATURE", "0.0")))
+    max_tokens: int = field(default_factory=lambda: int(os.getenv("TOGETHER_MAX_TOKENS", "10000")))
 
     @classmethod
     def from_env(cls) -> GeneralAgentConfig:

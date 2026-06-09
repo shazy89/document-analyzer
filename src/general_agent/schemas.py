@@ -4,19 +4,65 @@ from langgraph.graph import add_messages
 from pydantic import BaseModel, Field
 from typing import List
 from operator import add
-
-
-class QuestionDecision(BaseModel):
-    should_ask_questions: bool
-    missing_context: List[str] = Field(default_factory=list)
-    discovery_questions: List[str] = Field(default_factory=list)
-
-
 from typing import Annotated, Any, Dict, List, Optional, TypedDict
 from operator import add
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
+
+ShortText = Annotated[str, Field(max_length=180)]
+
+
+class SessionContext(BaseModel):
+    product_name: Optional[ShortText] = Field(
+        default=None,
+        description="Known product name, if available."
+    )
+    domain: Optional[ShortText] = Field(
+        default=None,
+        description="Known product or business domain, if available."
+    )
+    known_target_users: List[ShortText] = Field(default_factory=list, max_length=5)
+    known_workflows: List[ShortText] = Field(default_factory=list, max_length=5)
+    ux_preferences: List[ShortText] = Field(default_factory=list, max_length=5)
+    constraints: List[ShortText] = Field(default_factory=list, max_length=5)
+    business_context: List[ShortText] = Field(default_factory=list, max_length=5)
+
+
+class TaskContext(BaseModel):
+    request_type: Optional[ShortText] = None
+    product_area: Optional[ShortText] = None
+    ux_goal: Optional[ShortText] = None
+    target_user: Optional[ShortText] = None
+    main_job: Optional[ShortText] = None
+    known_requirements: List[ShortText] = Field(default_factory=list, max_length=6)
+    assumptions: List[ShortText] = Field(default_factory=list, max_length=5)
+    constraints: List[ShortText] = Field(default_factory=list, max_length=5)
+    likely_friction: List[ShortText] = Field(default_factory=list, max_length=5)
+    risks: List[ShortText] = Field(default_factory=list, max_length=5)
+    success_criteria: List[ShortText] = Field(default_factory=list, max_length=5)
+
+
+class ContextAnalysis(BaseModel):
+    session_context: SessionContext = Field(
+        default_factory=SessionContext,
+        description="Compact reusable context about the current UX session, product, user profile, and reusable information."
+    )
+    task_context: TaskContext = Field(
+        default_factory=TaskContext,
+        description="Compact structured analysis of the current user request only."
+    )
+    missing_context: List[ShortText] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Important missing information that could materially affect the UX design."
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence from 0 to 1 that enough context exists to continue with UX planning."
+    )
 
 
 class UXAgentState(TypedDict):
@@ -34,7 +80,8 @@ class UXAgentState(TypedDict):
     # Temporary working context
     session_context: Dict[str, Any] 
     task_context: Dict[str, Any] # This is the current request after analysis.
-
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    
     # Discovery / control flow
     missing_context: List[str]
     should_ask_questions: bool
