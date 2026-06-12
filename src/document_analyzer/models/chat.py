@@ -74,3 +74,26 @@ class SearchResult(BaseModel):
 class HybridSearchResponse(BaseModel):
     results: list[SearchResult]
     strategy: str
+
+
+# ── Designer Agent models ────────────────────────────────────
+
+
+class DesignerRunRequest(BaseModel):
+    message: str = Field(min_length=1)
+    thread_id: str = Field(default="default-thread")
+    user_id: str = Field(default="user_001")
+    profile_id: str = Field(default="profile_001")
+    is_new_session: bool = False
+
+
+class DesignerResumeRequest(BaseModel):
+    thread_id: str = Field(min_length=1)
+    user_answers: str = Field(min_length=1)
+
+
+class DesignerResponse(BaseModel):
+    status: str  # "needs_input" | "complete"
+    questions: list[str] | None = None
+    missing_context: list[str] | None = None
+    result: str | None = None

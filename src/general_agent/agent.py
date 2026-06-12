@@ -6,7 +6,8 @@ import re
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, TypedDict
+from unittest import result
+from langgraph.types import Command, interrupt
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
@@ -313,8 +314,14 @@ class DesignerAgent:
         user_id: str,
         profile_id: str,
         is_new_session: bool = False,
-    ) -> str:
-        config = {"configurable": {"thread_id": thread_id}} 
+    ) -> dict:
+        """Run the graph. Returns a dict with either questions or the final result.
+
+        Return shapes:
+          - {"status": "needs_input", "questions": [...], "missing_context": [...]}
+          - {"status": "complete", "result": <final output string>}
+        """
+        config = {"configurable": {"thread_id": thread_id}}
 
         if is_new_session:
             graph_input = create_initial_ux_state(
@@ -327,11 +334,51 @@ class DesignerAgent:
                 "messages": [HumanMessage(content=message)],
                 "user_id": user_id,
                 "profile_id": profile_id,
-            }   
+            }
 
-        result = self._graph.invoke(graph_input, config=config)
+        self._graph.invoke(graph_input, config=config)
 
-        return result.get("final_instructions") or result["messages"][-1].content
+        # Check if the graph paused at an interrupt
+        state = self._graph.get_state(config)
+        if state.tasks and any(t.interrupts for t in state.tasks):
+            # Extract the interrupt payload (the questions dict)
+            interrupt_payload = state.tasks[0].interrupts[0].value
+            return {
+                "status": "needs_input",
+                "questions": interrupt_payload["questions"],
+                "missing_context": interrupt_payload["missing_context"],
+            }
+
+        # Graph completed — extract final output
+        result_state = state.values
+        output = result_state.get("final_instructions") or result_state["messages"][-1].content
+        return {"status": "complete", "result": output}
+
+    def resume(
+        self,
+        thread_id: str,
+        user_answers: str,
+    ) -> dict:
+        """Resume the graph after the user answers discovery questions.
+
+        Return shape is the same as run().
+        """
+        config = {"configurable": {"thread_id": thread_id}}
+
+        self._graph.invoke(Command(resume=user_answers), config=config)
+
+        state = self._graph.get_state(config)
+        if state.tasks and any(t.interrupts for t in state.tasks):
+            interrupt_payload = state.tasks[0].interrupts[0].value
+            return {
+                "status": "needs_input",
+                "questions": interrupt_payload["questions"],
+                "missing_context": interrupt_payload["missing_context"],
+            }
+
+        result_state = state.values
+        output = result_state.get("final_instructions") or result_state["messages"][-1].content
+        return {"status": "complete", "result": output}
 
     # ------------------------------------------------------------------
     # Graph
@@ -432,9 +479,20 @@ class DesignerAgent:
                 "task_context": state.get("task_context", {}),
             }, indent=2)),
         ])
+
+        # Pause graph execution — the interrupt payload is returned to the caller
+        # so they can display the questions. The graph resumes when the caller
+        # invokes with Command(resume=<user's answers string>).
+        user_answers = interrupt({
+            "questions": result.discovery_questions,
+            "missing_context": result.missing_context,
+        })
+
+        # After resume: user_answers is whatever the caller passed via Command(resume=...)
         return {
             "discovery_questions": result.discovery_questions,
             "missing_context": result.missing_context,
+            "messages": [HumanMessage(content=user_answers)],
         }
         
         
@@ -527,12 +585,20 @@ if __name__ == "__main__":
         print(json.dumps(output, indent=2, default=str))
     else:
         agent = DesignerAgent.from_env()
-        print(
-            agent.run(
-                args.message,
-                thread_id=args.thread_id,
-                user_id=args.user_id,
-                profile_id=args.profile_id,
-                is_new_session=args.is_new_session,
-            )
+        response = agent.run(
+            args.message,
+            thread_id=args.thread_id,
+            user_id=args.user_id,
+            profile_id=args.profile_id,
+            is_new_session=args.is_new_session,
         )
+
+        if response["status"] == "needs_input":
+            print("\n--- Discovery Questions ---")
+            for i, q in enumerate(response["questions"], 1):
+                print(f"  {i}. {q}")
+            print()
+            answers = input("Your answers: ")
+            response = agent.resume(args.thread_id, answers)
+
+        print(json.dumps(response, indent=2, default=str))

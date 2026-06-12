@@ -6,6 +6,7 @@ import time
 from fastapi import FastAPI, Request
 
 from document_analyzer.api.router import router
+from document_analyzer.api.designer_router import designer_router
 from document_analyzer.core.config import get_settings
 from document_analyzer.core.logging import configure_logging
 
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(router)
+    app.include_router(designer_router)
     return app
 
 
