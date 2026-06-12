@@ -109,3 +109,31 @@ Return:
 - missing_context: list
 - discovery_questions: max 5 questions
 """
+
+UX_PLANNER_PROMPT = """
+Act as a senior UX designer.
+
+Create a raw ASCII wireframe for this dashboard create/edit page.
+
+Goal:
+Users can build a custom dashboard by selecting available items from a left widget library and arranging them into rows on the canvas.
+
+Requirements:
+- Left sidebar widget library
+- Filters for DashboardType: Chart, HistoricalChart, Table, HistoricalTable
+- Search should respect selected filters
+- Main canvas supports draggable rows
+- Each row can have 1, 2, or 3 columns
+- User can add a new row
+- User can drag items from the left library into a row/column
+- Backend only saves item position and row number; row layout is handled on frontend
+- No right advanced settings sidebar for now
+
+Include:
+- ASCII layout
+- Interaction notes
+- Empty states
+- Save/cancel placement
+- Common edge cases
+- Recommended component breakdown
+"""

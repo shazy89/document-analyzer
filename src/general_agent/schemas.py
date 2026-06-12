@@ -43,6 +43,23 @@ class TaskContext(BaseModel):
     success_criteria: List[ShortText] = Field(default_factory=list, max_length=5)
 
 
+class QuestionDecision(BaseModel):
+    should_ask_questions: bool = Field(
+        default=False,
+        description="Whether discovery questions should be asked before planning."
+    )
+    discovery_questions: List[ShortText] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Up to 5 targeted questions to resolve the most critical missing context."
+    )
+    missing_context: List[ShortText] = Field(
+        default_factory=list,
+        max_length=5,
+        description="The specific missing context items that prompted these questions."
+    )
+
+
 class ContextAnalysis(BaseModel):
     session_context: SessionContext = Field(
         default_factory=SessionContext,

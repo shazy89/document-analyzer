@@ -18,8 +18,8 @@ from langgraph.graph.message import add_messages
 from operator import add
 
 from general_agent.config import GeneralAgentConfig
-from general_agent.prompts import SYSTEM_PROMPT, UX_SYSTEM_PROMPT, CONTEXT_ANALYZER_PROMPT
-from general_agent.schemas import UXAgentState, ContextAnalysis, create_initial_ux_state
+from general_agent.prompts import UX_PLANNER_PROMPT, UX_SYSTEM_PROMPT, CONTEXT_ANALYZER_PROMPT, QUESTION_DECIDER_PROMPT, UXPlan
+from general_agent.schemas import UXAgentState, ContextAnalysis, QuestionDecision, create_initial_ux_state
 from general_agent.tools import GeneralAgentTools
 
 _PROFILES_PATH = Path(__file__).parent / "data" / "profiles.json"
@@ -236,29 +236,10 @@ def profile_loader(state: UXAgentState) -> dict:
 
 
 
-def question_decider(state: UXAgentState) -> dict:
-    """Decide if more context is needed before planner can proceed."""
-  
-    return None  # TODO: implement this node using the QUESTION_DECIDER_PROMPT and the QuestionDecision schema
-
-
-def route_after_question_decider(state: UXAgentState) -> str:
-    if state.get("should_ask_questions"):
-        return "discovery_questions"
-    return "ux_planner"
-
 
 def final_response(state: UXAgentState) -> dict:
     content = json.dumps(
-        {
-            "profile_loaded": bool(state.get("profile_data")),
-            "profile_data": state.get("profile_data", {}),
-            "session_context": state.get("session_context", {}),
-            "task_context": state.get("task_context", {}),
-            "missing_context": state.get("missing_context", []),
-            "confidence": state.get("confidence", 0.0),
-            "should_ask_questions": state.get("should_ask_questions", False),
-        },
+        state,
         indent=2,
         default=str,
     )
@@ -361,29 +342,26 @@ class DesignerAgent:
         
         builder.add_node("profile_loader", profile_loader)
         builder.add_node("context_analyzer", self._context_analyzer)
-        # builder.add_node("profile_updater", profile_updater)
-        # builder.add_node("question_decider", question_decider)
-        # builder.add_node("discovery_questions", discovery_questions)
-        # builder.add_node("ux_planner", ux_planner)
+        builder.add_node("question_decider", self._question_decider)
+        builder.add_node("discovery_questions", self._discovery_questions)
+        builder.add_node("ux_planner", self._ux_planner)
         builder.add_node("final_response", final_response)
 
         builder.add_edge(START, "profile_loader")
         builder.add_edge("profile_loader", "context_analyzer")
-        builder.add_edge("context_analyzer", "final_response")  # TODO: this will eventually route to profile_updater or question_decider based on the output of context_analyzer
-        #builder.add_edge("context_analyzer", "profile_updater")
-        #builder.add_edge("profile_updater", "question_decider")
+        builder.add_edge("context_analyzer", "question_decider")
 
-        #builder.add_conditional_edges(
-        #    "question_decider",
-        #    route_after_question_decider,
-        #    {
-        #        "discovery_questions": "discovery_questions",
-        #        "ux_planner": "ux_planner",
-        #    },
-        #)
+        builder.add_conditional_edges(
+            "question_decider",
+            self._question_decider,
+            {
+                True: "discovery_questions",
+                False: "ux_planner",
+            },
+        )
 
-        #builder.add_edge("discovery_questions", END)
-        #builder.add_edge("ux_planner", "final_response")
+        builder.add_edge("discovery_questions", "ux_planner")
+        builder.add_edge("ux_planner", "final_response")
         builder.add_edge("final_response", END)
 
         return builder.compile(checkpointer=MemorySaver())
@@ -437,6 +415,37 @@ class DesignerAgent:
             config=self.config,
         )
         
+    def _question_decider(self, state: UXAgentState) -> dict:
+        """Decides the next question to ask based on the current state."""
+        should_ask = bool(state.get("missing_context")) and state.get("confidence", 0.0) < 0.55
+        
+        return should_ask
+    
+    def _discovery_questions(self, state: UXAgentState) -> dict:
+        """Discovery questions to ask the user when important context is missing."""
+        result = self._llm.with_structured_output(QuestionDecision).invoke([
+            ("system", UX_SYSTEM_PROMPT),
+            ("system", QUESTION_DECIDER_PROMPT),
+            ("user", json.dumps({
+                "missing_context": state.get("missing_context", []),
+                "session_context": state.get("session_context", {}),
+                "task_context": state.get("task_context", {}),
+            }, indent=2)),
+        ])
+        return {
+            "discovery_questions": result.discovery_questions,
+            "missing_context": result.missing_context,
+        }
+        
+        
+        
+    def _ux_planner(self, state: UXAgentState) -> dict:
+        """Generate a UX plan based on the current context."""
+        llm = self._llm.invoke([
+            "system", UX_SYSTEM_PROMPT,
+            "system", UX_PLANNER_PROMPT,
+        ])
+        pass    
          
 
     def _execute_tool_calls(self, state: UXAgentState) -> dict:
