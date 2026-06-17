@@ -1,0 +1,149 @@
+[
+  {
+    "date": "2026-05-01",
+    "description": "Payroll Deposit",
+    "amount": 4200.0,
+    "category": "Income",
+    "type": "income"
+  },
+  {
+    "date": "2026-05-02",
+    "description": "Whole Foods Market",
+    "amount": 86.42,
+    "category": "Groceries",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-03",
+    "description": "Shell Gas Station",
+    "amount": 52.18,
+    "category": "Transportation",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-04",
+    "description": "Netflix",
+    "amount": 15.49,
+    "category": "Subscriptions",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-05",
+    "description": "Starbucks",
+    "amount": 7.85,
+    "category": "Dining",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-06",
+    "description": "Con Edison",
+    "amount": 124.67,
+    "category": "Utilities",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-07",
+    "description": "Amazon",
+    "amount": 64.99,
+    "category": "Shopping",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-08",
+    "description": "Chipotle",
+    "amount": 14.75,
+    "category": "Dining",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-10",
+    "description": "Rent Payment",
+    "amount": 2100.0,
+    "category": "Housing",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-12",
+    "description": "Uber",
+    "amount": 28.36,
+    "category": "Transportation",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-15",
+    "description": "Freelance Payment",
+    "amount": 750.0,
+    "category": "Income",
+    "type": "income"
+  },
+  {
+    "date": "2026-05-16",
+    "description": "Target",
+    "amount": 92.31,
+    "category": "Shopping",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-18",
+    "description": "Verizon Wireless",
+    "amount": 89.99,
+    "category": "Utilities",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-20",
+    "description": "Planet Fitness",
+    "amount": 24.99,
+    "category": "Health",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-22",
+    "description": "Trader Joe's",
+    "amount": 74.56,
+    "category": "Groceries",
+    "type": "expense"
+  },
+  {
+    "date": "2026-05-25",
+    "description": "DoorDash",
+    "amount": 38.42,
+    "category": "Dining",
+    "type": "expense"
+  },
+    {
+    "date": "2026-05-25",
+    "description": "PS&G",
+    "amount": 120.42,
+    "category": "Utilities",
+    "type": "expense"
+  },
+    {
+    "date": "2026-06-25",
+      "description": "PS&G",
+    "amount": 320.42,
+    "category": "Utilities",
+    "type": "expense"
+  },
+    {
+    "date": "2026-07-25",
+    "description": "PS&G",
+    "amount": 300.42,
+    "category": "Utilities",
+    "type": "expense"
+  },
+    {
+    "date": "2026-08-25",
+    "description": "PS&G",
+    "amount": 140.42,
+    "category": "Utilities",
+    "type": "expense"
+  },
+    {
+    "date": "2026-09-25",
+    "description": "PS&G",
+    "amount": 120.42,
+    "category": "Utilities",
+    "type": "expense"
+  }
+]
