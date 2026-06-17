@@ -19,7 +19,7 @@ from langgraph.graph.message import add_messages
 from operator import add
 
 from general_agent.config import GeneralAgentConfig
-from general_agent.prompts import UX_PLANNER_PROMPT, UX_SYSTEM_PROMPT, CONTEXT_ANALYZER_PROMPT, QUESTION_DECIDER_PROMPT, UXPlan
+from general_agent.prompts import UX_PLANNER_PROMPT, UX_SYSTEM_PROMPT, CONTEXT_ANALYZER_PROMPT, QUESTION_DECIDER_PROMPT
 from general_agent.schemas import UXAgentState, ContextAnalysis, QuestionDecision, create_initial_ux_state
 from general_agent.tools import GeneralAgentTools
 
@@ -389,17 +389,16 @@ class DesignerAgent:
         
         builder.add_node("profile_loader", profile_loader)
         builder.add_node("context_analyzer", self._context_analyzer)
-        builder.add_node("question_decider", self._question_decider)
+        
         builder.add_node("discovery_questions", self._discovery_questions)
         builder.add_node("ux_planner", self._ux_planner)
         builder.add_node("final_response", final_response)
 
         builder.add_edge(START, "profile_loader")
         builder.add_edge("profile_loader", "context_analyzer")
-        builder.add_edge("context_analyzer", "question_decider")
 
         builder.add_conditional_edges(
-            "question_decider",
+            "context_analyzer",
             self._question_decider,
             {
                 True: "discovery_questions",
@@ -500,10 +499,16 @@ class DesignerAgent:
     def _ux_planner(self, state: UXAgentState) -> dict:
         """Generate a UX plan based on the current context."""
         llm = self._llm.invoke([
-            "system", UX_SYSTEM_PROMPT,
-            "system", UX_PLANNER_PROMPT,
+            ("system", UX_SYSTEM_PROMPT),
+            ("system", UX_PLANNER_PROMPT),
+            ("user", json.dumps({
+                "session_context": state.get("session_context", {}),
+                "task_context": state.get("task_context", {}),
+                "missing_context": state.get("missing_context", []),
+            }, indent=2)),
         ])
-        pass    
+        print("Generated UX plan:", llm)
+        return {"messages": [AIMessage(content=llm.content)]}  
          
 
     def _execute_tool_calls(self, state: UXAgentState) -> dict:
