@@ -3,16 +3,12 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.graph import add_messages
 from pydantic import BaseModel, Field
 from typing import List
-from operator import add
 from typing import Annotated, Any, Dict, List, Optional, TypedDict
 from operator import add
 
 from langchain_core.messages import BaseMessage
-from langgraph.graph.message import add_messages
 
 ShortText = Annotated[str, Field(max_length=180)]
-
-
 class SessionContext(BaseModel):
     product_name: Optional[ShortText] = Field(
         default=None,
@@ -80,7 +76,16 @@ class ContextAnalysis(BaseModel):
         le=1.0,
         description="Confidence from 0 to 1 that enough context exists to continue with UX planning."
     )
-
+class UXPlan(BaseModel):
+    objective: str
+    target_user: str
+    assumptions: list[str]
+    recommended_flow: list[str]
+    page_structure: list[str]
+    key_interactions: list[str]
+    states_and_edge_cases: list[str]
+    risks: list[str]
+    next_steps: list[str] 
 
 class UXAgentState(TypedDict):
     # Conversation
@@ -105,7 +110,7 @@ class UXAgentState(TypedDict):
     discovery_questions: List[str]
 
     # Agent outputs
-    ux_plan: Dict[str, Any]
+    ux_plan: UXPlan
     ui_plan: Dict[str, Any]
 
     # Final Copilot-ready output
@@ -113,6 +118,8 @@ class UXAgentState(TypedDict):
 
     # Diagnostics
     errors: Annotated[list[str], add]
+    
+  
     
 
 

@@ -111,29 +111,30 @@ Return:
 """
 
 UX_PLANNER_PROMPT = """
-Act as a senior UX designer.
+As a senior UX designer, create a high-level UX plan based on the current context analysis.
 
-Create a raw ASCII wireframe for this dashboard create/edit page.
+Your job is to create a structured UX plan from the analyzed context.
 
-Goal:
-Users can build a custom dashboard by selecting available items from a left widget library and arranging them into rows on the canvas.
+Do not write the final user-facing answer.
+Do not create high-fidelity UI styling.
+Do not generate production code.
+Do not ask discovery questions.
 
-Requirements:
-- Left sidebar widget library
-- Filters for DashboardType: Chart, HistoricalChart, Table, HistoricalTable
-- Search should respect selected filters
-- Main canvas supports draggable rows
-- Each row can have 1, 2, or 3 columns
-- User can add a new row
-- User can drag items from the left library into a row/column
-- Backend only saves item position and row number; row layout is handled on frontend
-- No right advanced settings sidebar for now
+Create a practical UX plan that includes:
+- the UX goal
+- primary user
+- main job-to-be-done
+- recommended sections
+- recommended user flow
+- key UX decisions
+- friction points
+- validation rules
+- edge cases
+- success criteria
+- open questions
 
-Include:
-- ASCII layout
-- Interaction notes
-- Empty states
-- Save/cancel placement
-- Common edge cases
-- Recommended component breakdown
+Use the saved profile and task context when available.
+If context is incomplete but sufficient, make clear assumptions and continue.
+Keep the plan practical and implementation-aware.
+
 """

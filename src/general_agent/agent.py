@@ -20,7 +20,7 @@ from operator import add
 
 from general_agent.config import GeneralAgentConfig
 from general_agent.prompts import UX_PLANNER_PROMPT, UX_SYSTEM_PROMPT, CONTEXT_ANALYZER_PROMPT, QUESTION_DECIDER_PROMPT
-from general_agent.schemas import UXAgentState, ContextAnalysis, QuestionDecision, create_initial_ux_state
+from general_agent.schemas import UXAgentState, ContextAnalysis, QuestionDecision, create_initial_ux_state, UXPlan
 from general_agent.tools import GeneralAgentTools
 
 _PROFILES_PATH = Path(__file__).parent / "data" / "profiles.json"
@@ -244,7 +244,7 @@ def final_response(state: UXAgentState) -> dict:
         indent=2,
         default=str,
     )
-
+    
     return {
         "final_instructions": content,
         "messages": [AIMessage(content=content)],
@@ -398,8 +398,8 @@ class DesignerAgent:
         builder.add_edge("profile_loader", "context_analyzer")
 
         builder.add_conditional_edges(
-            "context_analyzer",
-            self._question_decider,
+            "question_decider",
+            self._route_after_question_decider,
             {
                 True: "discovery_questions",
                 False: "ux_planner",
@@ -465,7 +465,10 @@ class DesignerAgent:
         """Decides the next question to ask based on the current state."""
         should_ask = bool(state.get("missing_context")) and state.get("confidence", 0.0) < 0.55
         
-        return should_ask
+        return {"should_ask_questions": should_ask}
+
+    def _route_after_question_decider(self, state: UXAgentState) -> bool:
+        return bool(state.get("should_ask_questions", False))
     
     def _discovery_questions(self, state: UXAgentState) -> dict:
         """Discovery questions to ask the user when important context is missing."""
@@ -498,17 +501,19 @@ class DesignerAgent:
         
     def _ux_planner(self, state: UXAgentState) -> dict:
         """Generate a UX plan based on the current context."""
-        llm = self._llm.invoke([
+        content = self._llm.with_structured_output(UXPlan).invoke([
             ("system", UX_SYSTEM_PROMPT),
             ("system", UX_PLANNER_PROMPT),
             ("user", json.dumps({
+                "profile_data": state.get("profile_data", {}),
                 "session_context": state.get("session_context", {}),
                 "task_context": state.get("task_context", {}),
                 "missing_context": state.get("missing_context", []),
-            }, indent=2)),
+                "confidence": state.get("confidence", 0.0),
+                }, indent=2)),
         ])
-        print("Generated UX plan:", llm)
-        return {"messages": [AIMessage(content=llm.content)]}  
+        logger.info("Generated UX plan: %s", content)
+        return {"ux_plan": content.model_dump() if hasattr(content, "model_dump") else content}
          
 
     def _execute_tool_calls(self, state: UXAgentState) -> dict:
@@ -607,3 +612,19 @@ if __name__ == "__main__":
             response = agent.resume(args.thread_id, answers)
 
         print(json.dumps(response, indent=2, default=str))
+
+
+# Activate your venv first
+# source .venv/bin/activate
+
+# Default: context analysis mode
+# python -m general_agent.agent
+
+# Explicit context mode with a custom message
+# python -m general_agent.agent --mode context --message "Your question here"
+
+# Full graph mode (runs the LangGraph workflow)
+# python -m general_agent.agent --mode full --user-id user_001 --profile-id profile_001
+
+# Full mode with a new session + custom thread
+# python -m general_agent.agent --mode full --is-new-session --thread-id my-thread --user-id user_001 --profile-id profile_001

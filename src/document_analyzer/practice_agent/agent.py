@@ -1,15 +1,13 @@
-
-import operator
-import os
+#!/usr/bin/env python3
 from typing import TypedDict
 
 from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
 from typing_extensions import Annotated
 from langgraph.graph import StateGraph, END
+from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 
-from document_analyzer.analyzer_agent.agent import AgentState
 from document_analyzer.analyzer_agent.config import DocumentAnalyzerConfig
 from langgraph.checkpoint.memory import MemorySaver
 memory = MemorySaver()
@@ -61,7 +59,7 @@ tools = [add, multiply, divide]
 tools_by_name = {tool.name: tool for tool in tools}
 
 class MessagesState(TypedDict):
-    messages: Annotated[list[AnyMessage], operator.add]
+    messages: Annotated[list[AnyMessage], add_messages]
     llm_calls: int
 
 class PracticeAgent:
@@ -83,7 +81,7 @@ Rules:
     def _llm_model(self):
         return ChatOpenAI(model=self.config.model_name, temperature=0, api_key=self.config.api_key, base_url=self.config.api_base).bind_tools(tools)    
     
-    def llm_call(self, state: list[AnyMessage]) -> AnyMessage:
+    def llm_call(self, state: MessagesState) -> MessagesState:
         messages = state.get("messages", [])
         llm_calls = state.get("llm_calls", 0)
         
@@ -96,7 +94,7 @@ Rules:
         
         return {"messages": [content], "llm_calls": llm_calls + 1}
     
-    def take_aktion(self, state: list[AnyMessage]) -> list[AnyMessage]:
+    def take_action(self, state: MessagesState) -> MessagesState:
         last_message = state["messages"][-1]
         tool_calls = getattr(last_message, "tool_calls", [])
         llm_calls = state.get("llm_calls", 0) + 1
@@ -109,7 +107,13 @@ Rules:
         for t in tool_calls:
             tool = tools_by_name[t["name"]]
             observation = tool.invoke(t.get("args", {}))
-            result.append(ToolMessage(content=str(observation), tool_call_id=t["id"]))
+            result.append(
+                ToolMessage(
+                    content=str(observation),
+                    name=t["name"],
+                    tool_call_id=t["id"],
+                )
+            )
         
         return {"messages": result, "llm_calls": llm_calls}
     
@@ -123,7 +127,7 @@ Rules:
         graph = StateGraph(MessagesState)
         
         graph.add_node("llm", self.llm_call)
-        graph.add_node("action", self.take_aktion)
+        graph.add_node("action", self.take_action)
         
         graph.add_conditional_edges("llm", self.should_continue)
         graph.add_edge("action", "llm")
@@ -132,19 +136,24 @@ Rules:
         return graph.compile(checkpointer=self.checkpointer)
         
         
-config = DocumentAnalyzerConfig.from_env()        
-agent = PracticeAgent(config=config, checkpointer=memory)
-graph = agent.build_graph()
+def main() -> None:
+    config = DocumentAnalyzerConfig.from_env()
+    agent = PracticeAgent(config=config, checkpointer=memory)
+    graph = agent.build_graph()
 
-thread4 = {"configurable": {"thread_id": "1234"}}
-messages = [HumanMessage(content="What is 5 multiplied by 3?")]
+    thread4 = {"configurable": {"thread_id": "1234"}}
+    messages = [HumanMessage(content="What is 5 multiplied by 3?")]
 
-for event in graph.stream({"messages": messages, "llm_calls": 0}, thread4):
-    print(f"Event: {event}")
+    for event in graph.stream({"messages": messages, "llm_calls": 0}, thread4):
+        print(f"Event: {event}")
 
-    if "llm" in event:
-        ai_message = event["llm"]["messages"][-1]
+        if "llm" in event:
+            ai_message = event["llm"]["messages"][-1]
 
-        # Only log final answer when there are no tool calls
-        if not getattr(ai_message, "tool_calls", []):
-            print("Final answer:", ai_message.content)
+            # Only log final answer when there are no tool calls.
+            if not getattr(ai_message, "tool_calls", []):
+                print("Final answer:", ai_message.content)
+
+
+if __name__ == "__main__":
+    main()
